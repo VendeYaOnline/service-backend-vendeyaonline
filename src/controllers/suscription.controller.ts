@@ -94,10 +94,12 @@ export const getSuscription = async (req: Request, res: Response) => {
     const user = await User.findOne({ where: { id }, include: Subscription });
     const { dataValues } = user as { dataValues: UserI };
     if (dataValues.Subscriptions.length) {
-      res.status(200).json({ subscription: dataValues.Subscriptions });
+      res
+        .status(200)
+        .json({ subscription: dataValues.Subscriptions[0].dataValues });
       return;
     } else {
-      res.status(200).json({ subscription: undefined });
+      res.status(200).json({ subscription: [] });
       return;
     }
   } catch (error: any) {
@@ -111,12 +113,17 @@ export const getSuscription = async (req: Request, res: Response) => {
 export const getCanceledSuscription = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const suscription = await CanceledSubscription.findOne({ where: { id } });
-    if (suscription) {
-      const { dataValues } = suscription as { dataValues: SuscriptionI };
-      return res.status(200).json({ subscription: dataValues });
+    const user = await User.findOne({
+      where: { id },
+      include: CanceledSubscription,
+    });
+    const { dataValues } = user as { dataValues: UserI };
+    if (dataValues.CanceledSubscriptions.length) {
+      return res.status(200).json({
+        subscription: [dataValues.CanceledSubscriptions[0].dataValues],
+      });
     } else {
-      return res.status(200).json({ subscription: undefined });
+      return res.status(200).json({ subscription: [] });
     }
   } catch (error: any) {
     res.status(500).json({

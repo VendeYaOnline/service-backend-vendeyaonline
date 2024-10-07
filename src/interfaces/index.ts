@@ -4,6 +4,7 @@ export interface UserI {
   email: string;
   password: string;
   Subscriptions: [{ dataValues: SuscriptionI }];
+  CanceledSubscriptions: [{ dataValues: SuscriptionI }];
   updatedat?: Date;
 }
 
