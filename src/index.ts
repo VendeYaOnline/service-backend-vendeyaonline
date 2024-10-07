@@ -19,5 +19,5 @@ app.use("/api",routeUsers)
 
 //SERVER
 app.listen(app.get("port"), () => {
-  console.log("Server ruj in port", app.get("port"));
+  console.log("Server run in port", app.get("port"));
 });

@@ -3,27 +3,40 @@ import User from "../models/users";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { UserI } from "../interfaces";
+import { userSchema } from "../schemas/userSchema";
 
 export const createUser = async (req: Request, res: Response) => {
   try {
     const data = req.body;
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-    data.password = hashedPassword;
-    const user = await User.create(data);
-    const { dataValues } = user as { dataValues: UserI };
-    const token = jwt.sign(
-      { email: dataValues.email },
-      process.env.JWT_SECRET!,
-      {
-        expiresIn: "10h",
-      }
-    );
+    const { error } = userSchema.validate(req.body);
+    if (error) {
+      res.status(400).json({ error: error.details[0].message });
+      return;
+    } else {
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+      data.password = hashedPassword;
+      const user = await User.create(data);
+      const { dataValues } = user as { dataValues: UserI };
+      const token = jwt.sign(
+        { email: dataValues.email },
+        process.env.JWT_SECRET!,
+        {
+          expiresIn: "10h",
+        }
+      );
 
-    res.status(201).json({ username: dataValues.username, token });
+      res.status(201).json({ username: dataValues.username, token });
+    }
   } catch (error: any) {
-    res.status(500).json({
-      error: `Error al crear el usuario - ${error.errors[0].message}`,
-    });
+    if (error.errors[0].message === "email must be unique") {
+      res.status(500).json({
+        error: `Ya existe el usuario`,
+      });
+    } else {
+      res.status(500).json({
+        error: `Error al crear el usuario - ${error.errors[0].message}`,
+      });
+    }
   }
 };
 
