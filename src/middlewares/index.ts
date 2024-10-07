@@ -15,8 +15,7 @@ export const validateToken = (
 
   try {
     const secretKey = process.env.JWT_SECRET!;
-    const valid = jwt.verify(token, secretKey);
-    console.log("valid",valid)
+    jwt.verify(token, secretKey);
     next();
   } catch (error) {
     res.status(400).json({ message: "Invalid token." });

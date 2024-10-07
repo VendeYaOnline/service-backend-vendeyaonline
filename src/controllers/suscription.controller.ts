@@ -29,11 +29,9 @@ export const createSuscription = async (req: Request, res: Response) => {
         } else {
           const subscription = await Subscription.create(data);
           const { dataValues } = subscription as { dataValues: SuscriptionI };
-          res
-            .status(201)
-            .json({
-              message: `Subscription created successfully ${dataValues.type}`,
-            });
+          res.status(201).json({
+            message: `Subscription created successfully ${dataValues.type}`,
+          });
         }
       }
     } catch (error: any) {
@@ -87,5 +85,45 @@ export const createCanceledSubscriptions = async (
         error: `Error creating user - ${error.errors[0].message}`,
       });
     }
+  }
+};
+
+export const getSuscription = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const suscription = await Subscription.findOne({ where: { id } });
+    if (suscription) {
+      const { dataValues } = suscription as { dataValues: SuscriptionI };
+      return res.status(200).json(dataValues);
+    } else {
+      return res
+        .status(404)
+        .json({ message: `There is no subscription with ID: ${id}` });
+    }
+  } catch (error: any) {
+    res.status(500).json({
+      error: `Error subscription - ${error.errors[0].message}`,
+    });
+    return;
+  }
+};
+
+export const getCanceledSuscription = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const suscription = await CanceledSubscription.findOne({ where: { id } });
+    if (suscription) {
+      const { dataValues } = suscription as { dataValues: SuscriptionI };
+      return res.status(200).json(dataValues);
+    } else {
+      return res
+        .status(404)
+        .json({ message: `There is no cancellation with ID: ${id}` });
+    }
+  } catch (error: any) {
+    res.status(500).json({
+      error: `Error cancellation - ${error.errors[0].message}`,
+    });
+    return;
   }
 };
