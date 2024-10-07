@@ -3,7 +3,7 @@ import User from "../models/users";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { UserI } from "../interfaces";
-import { userSchema } from "../schemas/userSchema";
+import { loginSchema, userSchema } from "../schemas/userSchema";
 
 export const createUser = async (req: Request, res: Response) => {
   try {
@@ -43,29 +43,37 @@ export const createUser = async (req: Request, res: Response) => {
 export const loginUser = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-
-    const user = await User.findOne({ where: { email } });
-
-    if (!user) {
-      res.status(404).json({ error: "Usuario no encontrado" });
+    const { error } = loginSchema.validate(req.body);
+    if (error) {
+      res.status(400).json({ error: error.details[0].message });
       return;
     } else {
-      const isMatch = await bcrypt.compare(password, user.dataValues.password);
-      if (!isMatch) {
-        res.status(401).json({ error: "Contraseña incorrecta" });
+      const user = await User.findOne({ where: { email } });
+
+      if (!user) {
+        res.status(404).json({ error: "Usuario no encontrado" });
         return;
-      }
-
-      const { dataValues } = user as { dataValues: UserI };
-      const token = jwt.sign(
-        { id: dataValues.id, email: dataValues.email },
-        process.env.JWT_SECRET!,
-        {
-          expiresIn: "10h",
+      } else {
+        const isMatch = await bcrypt.compare(
+          password,
+          user.dataValues.password
+        );
+        if (!isMatch) {
+          res.status(401).json({ error: "Contraseña o email incorrecto" });
+          return;
         }
-      );
 
-      res.status(200).json({ username: dataValues.username, token });
+        const { dataValues } = user as { dataValues: UserI };
+        const token = jwt.sign(
+          { id: dataValues.id, email: dataValues.email },
+          process.env.JWT_SECRET!,
+          {
+            expiresIn: "10h",
+          }
+        );
+
+        res.status(200).json({ username: dataValues.username, token });
+      }
     }
   } catch (error: any) {
     res.status(500).json({ error: "Error al iniciar sesión" });
