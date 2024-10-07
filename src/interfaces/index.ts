@@ -3,11 +3,12 @@ export interface UserI {
   username: string;
   email: string;
   password: string;
-  Subscriptions: SuscriptionI[];
+  Subscriptions: [{ dataValues: SuscriptionI }];
   updatedat?: Date;
 }
 
 export interface SuscriptionI {
+  id?: number;
   price: number;
   type: string;
   date: string;

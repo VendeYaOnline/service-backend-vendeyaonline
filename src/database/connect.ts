@@ -18,6 +18,16 @@ export const syncDatabase = async () => {
   }
 };
 
+export const resetDatabase = async () => {
+  try {
+    // Elimina todas las tablas y las recrea
+    await sequelize.sync({ force: true });
+    console.log("Las tablas han sido eliminadas y recreadas correctamente.");
+  } catch (error) {
+    console.error("Error al resetear las tablas:", error);
+  }
+};
+
 export const dropTables = async () => {
   try {
     await sequelize.sync(); // Sincroniza primero para asegurarte de que los modelos están definidos
