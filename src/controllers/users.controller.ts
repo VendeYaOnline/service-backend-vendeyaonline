@@ -30,11 +30,11 @@ export const createUser = async (req: Request, res: Response) => {
   } catch (error: any) {
     if (error.errors[0].message === "email must be unique") {
       res.status(500).json({
-        error: `Ya existe el usuario`,
+        error: `The user already exists`,
       });
     } else {
       res.status(500).json({
-        error: `Error al crear el usuario - ${error.errors[0].message}`,
+        error: `Error creating user - ${error.errors[0].message}`,
       });
     }
   }
@@ -51,7 +51,7 @@ export const loginUser = async (req: Request, res: Response) => {
       const user = await User.findOne({ where: { email } });
 
       if (!user) {
-        res.status(404).json({ error: "Usuario no encontrado" });
+        res.status(404).json({ error: "User not found" });
         return;
       } else {
         const isMatch = await bcrypt.compare(
@@ -59,7 +59,7 @@ export const loginUser = async (req: Request, res: Response) => {
           user.dataValues.password
         );
         if (!isMatch) {
-          res.status(401).json({ error: "Contraseña o email incorrecto" });
+          res.status(401).json({ error: "Incorrect password or email" });
           return;
         }
 
@@ -76,6 +76,6 @@ export const loginUser = async (req: Request, res: Response) => {
       }
     }
   } catch (error: any) {
-    res.status(500).json({ error: "Error al iniciar sesión" });
+    res.status(500).json({ error: "Login error" });
   }
 };

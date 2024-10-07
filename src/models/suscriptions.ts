@@ -19,7 +19,7 @@ const Subscription = sequelize.define(
       allowNull: false,
     },
     date: {
-      type: DataTypes.DATEONLY,
+      type: DataTypes.STRING,
       allowNull: false,
     },
     client: {
@@ -29,6 +29,8 @@ const Subscription = sequelize.define(
         model: User,
         key: "id",
       },
+      onUpdate: "CASCADE",
+      onDelete: "RESTRICT",
     },
   },
   {
