@@ -25,7 +25,8 @@ export const createUser = async (req: Request, res: Response) => {
         }
       );
 
-      res.status(201).json({ username: dataValues.username, token });
+      const { password, ...rest } = dataValues;
+      res.status(201).json({ user: rest, token });
     }
   } catch (error: any) {
     if (error.errors[0].message === "email must be unique") {
@@ -72,7 +73,8 @@ export const loginUser = async (req: Request, res: Response) => {
           }
         );
 
-        res.status(200).json({ username: dataValues.username, token });
+        const { password: password2, ...rest } = dataValues;
+        res.status(200).json({ user: rest, token });
       }
     }
   } catch (error: any) {

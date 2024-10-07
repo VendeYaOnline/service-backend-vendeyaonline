@@ -91,14 +91,14 @@ export const createCanceledSubscriptions = async (
 export const getSuscription = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const suscription = await Subscription.findOne({ where: { id } });
-    if (suscription) {
-      const { dataValues } = suscription as { dataValues: SuscriptionI };
-      return res.status(200).json(dataValues);
+    const user = await User.findOne({ where: { id }, include: Subscription });
+    const { dataValues } = user as { dataValues: UserI };
+    if (dataValues.Subscriptions.length) {
+      res.status(200).json({ subscription: dataValues.Subscriptions });
+      return;
     } else {
-      return res
-        .status(404)
-        .json({ message: `There is no subscription with ID: ${id}` });
+      res.status(200).json({ subscription: undefined });
+      return;
     }
   } catch (error: any) {
     res.status(500).json({
@@ -114,11 +114,9 @@ export const getCanceledSuscription = async (req: Request, res: Response) => {
     const suscription = await CanceledSubscription.findOne({ where: { id } });
     if (suscription) {
       const { dataValues } = suscription as { dataValues: SuscriptionI };
-      return res.status(200).json(dataValues);
+      return res.status(200).json({ subscription: dataValues });
     } else {
-      return res
-        .status(404)
-        .json({ message: `There is no cancellation with ID: ${id}` });
+      return res.status(200).json({ subscription: undefined });
     }
   } catch (error: any) {
     res.status(500).json({
