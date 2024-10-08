@@ -55,7 +55,7 @@ export const loginUser = async (req: Request, res: Response) => {
       const user = await User.findOne({ where: { email } });
 
       if (!user) {
-        res.status(404).json({ error: "User not found" });
+        res.status(404).json({ error: "Incorrect password or email" });
         return;
       } else {
         const isMatch = await bcrypt.compare(
@@ -83,5 +83,77 @@ export const loginUser = async (req: Request, res: Response) => {
     }
   } catch (error: any) {
     res.status(500).json({ error: "Login error" });
+    return;
+  }
+};
+
+export const updatedPassword = async (req: Request, res: Response) => {
+  try {
+    const { id, newPassword } = req.body;
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await User.update(
+      { password: hashedPassword },
+      {
+        where: { id },
+      }
+    );
+    res.status(200).json({ message: "Updated password" });
+    return;
+  } catch (error) {
+    res.status(500).json({ error: "Error updating password" });
+    return;
+  }
+};
+
+export const updatedPasswordEmail = async (req: Request, res: Response) => {
+  try {
+    const { email, newPassword } = req.body;
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await User.update(
+      { password: hashedPassword },
+      {
+        where: { email },
+      }
+    );
+    res.status(200).json({ message: "Updated password" });
+    return;
+  } catch (error) {
+    res.status(500).json({ error: "Error updating password" });
+    return;
+  }
+};
+
+export const getUserByEmail = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.params;
+    const user = await User.findOne({ where: { email } });
+    const { dataValues } = user as { dataValues: UserI };
+    const { username } = dataValues;
+    res.status(200).json({ user: username });
+    return;
+  } catch (error) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+};
+
+export const updatedUser = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data = req.body;
+    await User.update(
+      { ...data },
+      {
+        where: { id },
+      }
+    );
+    const user = await User.findOne({ where: { email: data.email } });
+    const { dataValues } = user as { dataValues: UserI };
+    const { password, ...rest } = dataValues;
+    res.status(201).json({ ...rest });
+    return;
+  } catch (error) {
+    res.status(404).json({ error: "User not found" });
+    return;
   }
 };

@@ -92,47 +92,57 @@ export const createCanceledSubscriptions = async (
 };
 
 export const getSuscription = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const user = await User.findOne({ where: { id }, include: Subscription });
-    const { dataValues } = user as { dataValues: UserI };
-    if (dataValues.Subscriptions.length) {
-      res
-        .status(200)
-        .json({ subscription: [dataValues.Subscriptions[0].dataValues] });
-      return;
-    } else {
-      res.status(200).json({ subscription: [] });
+  const { id } = req.params;
+  if (!id || id === "undefined") {
+    res.status(400).json({ error: "ID is missing" });
+    return;
+  } else {
+    try {
+      const user = await User.findOne({ where: { id }, include: Subscription });
+      const { dataValues } = user as { dataValues: UserI };
+      if (dataValues.Subscriptions.length) {
+        res
+          .status(200)
+          .json({ subscription: [dataValues.Subscriptions[0].dataValues] });
+        return;
+      } else {
+        res.status(200).json({ subscription: [] });
+        return;
+      }
+    } catch (error: any) {
+      res.status(500).json({
+        error: `Error subscription - ${error.errors[0].message}`,
+      });
       return;
     }
-  } catch (error: any) {
-    res.status(500).json({
-      error: `Error subscription - ${error.errors[0].message}`,
-    });
-    return;
   }
 };
 
 export const getCanceledSuscription = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const user = await User.findOne({
-      where: { id },
-      include: CanceledSubscription,
-    });
-    const { dataValues } = user as { dataValues: UserI };
-    if (dataValues.CanceledSubscriptions.length) {
-      return res.status(200).json({
-        subscription: [dataValues.CanceledSubscriptions[0].dataValues],
-      });
-    } else {
-      return res.status(200).json({ subscription: [] });
-    }
-  } catch (error: any) {
-    res.status(500).json({
-      error: `Error cancellation - ${error.errors[0].message}`,
-    });
+  const { id } = req.params;
+  if (!id || id === "undefined") {
+    res.status(400).json({ error: "ID is missing" });
     return;
+  } else {
+    try {
+      const user = await User.findOne({
+        where: { id },
+        include: CanceledSubscription,
+      });
+      const { dataValues } = user as { dataValues: UserI };
+      if (dataValues.CanceledSubscriptions.length) {
+        return res.status(200).json({
+          subscription: [dataValues.CanceledSubscriptions[0].dataValues],
+        });
+      } else {
+        return res.status(200).json({ subscription: [] });
+      }
+    } catch (error: any) {
+      res.status(500).json({
+        error: `Error cancellation - ${error.errors[0].message}`,
+      });
+      return;
+    }
   }
 };
 

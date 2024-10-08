@@ -20,11 +20,18 @@ export const syncDatabase = async () => {
 
 export const resetDatabase = async () => {
   try {
-    // Elimina todas las tablas y las recrea
-    await sequelize.sync({ force: true });
-    console.log("Las tablas han sido eliminadas y recreadas correctamente.");
+    const models = sequelize.models;
+
+    // Vaciar todas las tablas sin eliminarlas
+    for (const modelName in models) {
+      if (Object.hasOwnProperty.call(models, modelName)) {
+        await models[modelName].destroy({ where: {}, truncate: true });
+      }
+    }
+
+    console.log("Todas las tablas han sido vaciadas correctamente.");
   } catch (error) {
-    console.error("Error al resetear las tablas:", error);
+    console.error("Error al vaciar las tablas:", error);
   }
 };
 
