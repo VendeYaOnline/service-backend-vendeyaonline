@@ -13,7 +13,9 @@ export const createSuscription = async (req: Request, res: Response) => {
   } else {
     try {
       const data = req.body;
-      const user = await User.findByPk(data.client, { include: Subscription });
+      const user = await User.findByPk(data.client, {
+        include: [Subscription, CanceledSubscription],
+      });
       if (!user) {
         res.status(404).json({
           message: "The client does not exist",
@@ -21,6 +23,7 @@ export const createSuscription = async (req: Request, res: Response) => {
         return;
       } else {
         const { dataValues } = user as { dataValues: UserI };
+        await deleteCanceledSuscription(dataValues);
         if (dataValues.Subscriptions.length) {
           res.status(409).json({
             message: "The user already has an active subscription",
@@ -96,7 +99,7 @@ export const getSuscription = async (req: Request, res: Response) => {
     if (dataValues.Subscriptions.length) {
       res
         .status(200)
-        .json({ subscription: dataValues.Subscriptions[0].dataValues });
+        .json({ subscription: [dataValues.Subscriptions[0].dataValues] });
       return;
     } else {
       res.status(200).json({ subscription: [] });
@@ -130,5 +133,13 @@ export const getCanceledSuscription = async (req: Request, res: Response) => {
       error: `Error cancellation - ${error.errors[0].message}`,
     });
     return;
+  }
+};
+
+const deleteCanceledSuscription = async (user: UserI) => {
+  if (user.CanceledSubscriptions.length) {
+    await CanceledSubscription.destroy({
+      where: { id: user.CanceledSubscriptions[0].dataValues.id },
+    });
   }
 };

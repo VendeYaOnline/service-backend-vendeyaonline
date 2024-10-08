@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import routeUsers from "./routes/users.route";
 import routeSuscription from "./routes/suscription.route";
+import { resetDatabase } from "./database/connect";
 const app = express();
 dotenv.config();
 

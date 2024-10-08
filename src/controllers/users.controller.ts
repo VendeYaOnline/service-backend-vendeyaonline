@@ -27,16 +27,19 @@ export const createUser = async (req: Request, res: Response) => {
 
       const { password, ...rest } = dataValues;
       res.status(201).json({ user: rest, token });
+      return;
     }
   } catch (error: any) {
     if (error.errors[0].message === "email must be unique") {
       res.status(500).json({
         error: `The user already exists`,
       });
+      return;
     } else {
       res.status(500).json({
         error: `Error creating user - ${error.errors[0].message}`,
       });
+      return;
     }
   }
 };
@@ -75,6 +78,7 @@ export const loginUser = async (req: Request, res: Response) => {
 
         const { password: password2, ...rest } = dataValues;
         res.status(200).json({ user: rest, token });
+        return;
       }
     }
   } catch (error: any) {
