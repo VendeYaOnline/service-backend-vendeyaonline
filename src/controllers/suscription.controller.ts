@@ -23,7 +23,7 @@ export const createSuscription = async (req: Request, res: Response) => {
         return;
       } else {
         const { dataValues } = user as { dataValues: UserI };
-        await deleteCanceledSuscription(dataValues);
+        await removeCanceledSuscription(dataValues);
         if (dataValues.Subscriptions.length) {
           res.status(409).json({
             message: "The user already has an active subscription",
@@ -146,10 +146,37 @@ export const getCanceledSuscription = async (req: Request, res: Response) => {
   }
 };
 
-const deleteCanceledSuscription = async (user: UserI) => {
+const removeCanceledSuscription = async (user: UserI) => {
   if (user.CanceledSubscriptions.length) {
     await CanceledSubscription.destroy({
       where: { id: user.CanceledSubscriptions[0].dataValues.id },
     });
+  }
+};
+
+export const deleteSuscription = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!id) {
+    res.status(400).json({ message: "ID required" });
+    return;
+  } else {
+    await Subscription.destroy({ where: { id } });
+    res.status(204).json({ message: "Subscription deleted" });
+    return;
+  }
+};
+
+export const deleteCanceledSuscription = async (
+  req: Request,
+  res: Response
+) => {
+  const { id } = req.params;
+  if (!id) {
+    res.status(400).json({ message: "ID required" });
+    return;
+  } else {
+    await CanceledSubscription.destroy({ where: { id } });
+    res.status(204).json({ message: "Subscription deleted" });
+    return;
   }
 };
