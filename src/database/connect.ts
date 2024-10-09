@@ -11,7 +11,7 @@ export const sequelize = new Sequelize(process.env.DATABASE_URL!, {
 export const syncDatabase = async () => {
   try {
     // Sincroniza los modelos con la base de datos
-    await sequelize.sync({ force: false }); // Cambia a 'true' si deseas eliminar las tablas existentes y recrearlas
+    await sequelize.sync({ force: true }); // Cambia a 'true' si deseas eliminar las tablas existentes y recrearlas
     console.log("Las tablas han sido sincronizadas correctamente.");
   } catch (error) {
     console.error("Error al sincronizar las tablas:", error);

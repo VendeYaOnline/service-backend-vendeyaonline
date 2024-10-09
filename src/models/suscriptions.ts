@@ -11,7 +11,7 @@ const Subscription = sequelize.define(
       primaryKey: true,
     },
     price: {
-      type: DataTypes.STRING,
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
     type: {

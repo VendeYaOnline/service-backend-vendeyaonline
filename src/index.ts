@@ -3,7 +3,8 @@ import express from "express";
 import cors from "cors";
 import routeUsers from "./routes/users.route";
 import routeSuscription from "./routes/suscription.route";
-import { resetDatabase } from "./database/connect";
+import routeMercado from "./routes/mercado.route";
+import { syncDatabase } from "./database/connect";
 const app = express();
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.use(cors());
 //ROUTES
 app.use("/api", routeUsers);
 app.use("/api", routeSuscription);
+app.use("/api", routeMercado);
 
 //SERVER
 app.listen(app.get("port"), () => {
