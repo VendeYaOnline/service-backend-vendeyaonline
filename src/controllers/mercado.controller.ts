@@ -21,7 +21,7 @@ export const createSubscription = async (req: Request, res: Response) => {
           transaction_amount: plan === "web" ? 30000 : 60000,
           currency_id: "COP",
         },
-        back_url: "https://vendeyaonline.com/checkout?id=4EmuiW2J4wTmYRr",
+        back_url: "https://vendeyaonline.com/account",
       },
     });
 
