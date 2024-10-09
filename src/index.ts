@@ -4,7 +4,7 @@ import cors from "cors";
 import routeUsers from "./routes/users.route";
 import routeSuscription from "./routes/suscription.route";
 import routeMercado from "./routes/mercado.route";
-import { syncDatabase } from "./database/connect";
+import routeForm from "./routes/form.route";
 const app = express();
 dotenv.config();
 
@@ -19,6 +19,7 @@ app.use(cors());
 app.use("/api", routeUsers);
 app.use("/api", routeSuscription);
 app.use("/api", routeMercado);
+app.use("/api", routeForm);
 
 //SERVER
 app.listen(app.get("port"), () => {

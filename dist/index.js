@@ -9,6 +9,7 @@ const cors_1 = __importDefault(require("cors"));
 const users_route_1 = __importDefault(require("./routes/users.route"));
 const suscription_route_1 = __importDefault(require("./routes/suscription.route"));
 const mercado_route_1 = __importDefault(require("./routes/mercado.route"));
+const form_route_1 = __importDefault(require("./routes/form.route"));
 const app = (0, express_1.default)();
 dotenv_1.default.config();
 //VARS
@@ -20,6 +21,7 @@ app.use((0, cors_1.default)());
 app.use("/api", users_route_1.default);
 app.use("/api", suscription_route_1.default);
 app.use("/api", mercado_route_1.default);
+app.use("/api", form_route_1.default);
 //SERVER
 app.listen(app.get("port"), () => {
     console.log("Server run in port", app.get("port"));
