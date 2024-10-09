@@ -12,12 +12,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.registerForm = void 0;
+exports.deleteForm = exports.registerForm = void 0;
 const form_1 = __importDefault(require("../models/form"));
 const userSchema_1 = require("../schemas/userSchema");
 const registerForm = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const data = req.body;
-    const { error } = userSchema_1.userSchema.validate(req.body);
+    const { error } = userSchema_1.formSchema.validate(req.body);
     if (error) {
         res.status(400).json({ error: error.details[0].message });
         return;
@@ -29,3 +29,16 @@ const registerForm = (req, res) => __awaiter(void 0, void 0, void 0, function* (
     }
 });
 exports.registerForm = registerForm;
+const deleteForm = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    if (!id) {
+        res.status(400).json({ message: "ID required" });
+        return;
+    }
+    else {
+        yield form_1.default.destroy({ where: { id } });
+        res.status(204).json({ message: "Deleted message" });
+        return;
+    }
+});
+exports.deleteForm = deleteForm;

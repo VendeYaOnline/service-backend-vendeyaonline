@@ -14,4 +14,9 @@ route.post("/create-canceled_suscription", [
     middlewares_1.validateToken,
     suscription_controller_1.createCanceledSubscriptions,
 ]);
+route.delete("/delete-suscription/:id", [middlewares_1.validateToken, suscription_controller_1.deleteSuscription]);
+route.delete("/delete-canceled_suscription/:id", [
+    middlewares_1.validateToken,
+    suscription_controller_1.deleteCanceledSuscription,
+]);
 exports.default = route;

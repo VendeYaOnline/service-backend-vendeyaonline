@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCanceledSuscription = exports.getSuscription = exports.createCanceledSubscriptions = exports.createSuscription = void 0;
+exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createCanceledSubscriptions = exports.createSuscription = void 0;
 const suscriptionSchema_1 = require("../schemas/suscriptionSchema");
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
 const users_1 = __importDefault(require("../models/users"));
@@ -37,7 +37,7 @@ const createSuscription = (req, res) => __awaiter(void 0, void 0, void 0, functi
             }
             else {
                 const { dataValues } = user;
-                yield deleteCanceledSuscription(dataValues);
+                yield removeCanceledSuscription(dataValues);
                 if (dataValues.Subscriptions.length) {
                     res.status(409).json({
                         message: "The user already has an active subscription",
@@ -167,10 +167,36 @@ const getCanceledSuscription = (req, res) => __awaiter(void 0, void 0, void 0, f
     }
 });
 exports.getCanceledSuscription = getCanceledSuscription;
-const deleteCanceledSuscription = (user) => __awaiter(void 0, void 0, void 0, function* () {
+const removeCanceledSuscription = (user) => __awaiter(void 0, void 0, void 0, function* () {
     if (user.CanceledSubscriptions.length) {
         yield canceled_subscriptions_1.default.destroy({
             where: { id: user.CanceledSubscriptions[0].dataValues.id },
         });
     }
 });
+const deleteSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    if (!id) {
+        res.status(400).json({ message: "ID required" });
+        return;
+    }
+    else {
+        yield suscriptions_1.default.destroy({ where: { id } });
+        res.status(204).json({ message: "Subscription deleted" });
+        return;
+    }
+});
+exports.deleteSuscription = deleteSuscription;
+const deleteCanceledSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    if (!id) {
+        res.status(400).json({ message: "ID required" });
+        return;
+    }
+    else {
+        yield canceled_subscriptions_1.default.destroy({ where: { id } });
+        res.status(204).json({ message: "Subscription deleted" });
+        return;
+    }
+});
+exports.deleteCanceledSuscription = deleteCanceledSuscription;

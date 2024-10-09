@@ -23,7 +23,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updatedUser = exports.getUserByEmail = exports.updatedPasswordEmail = exports.updatedPassword = exports.loginUser = exports.createUser = void 0;
+exports.deleteUser = exports.updatedUser = exports.getUserByEmail = exports.updatedPasswordEmail = exports.updatedPassword = exports.loginUser = exports.createUser = void 0;
 const users_1 = __importDefault(require("../models/users"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const bcrypt_1 = __importDefault(require("bcrypt"));
@@ -167,3 +167,18 @@ const updatedUser = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     }
 });
 exports.updatedUser = updatedUser;
+const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        yield users_1.default.destroy({
+            where: { id },
+        });
+        res.status(204).json({ message: "User successfully deleted" });
+        return;
+    }
+    catch (error) {
+        res.status(404).json({ message: "User not found" });
+        return;
+    }
+});
+exports.deleteUser = deleteUser;
