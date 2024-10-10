@@ -29,7 +29,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
                     transaction_amount: plan === "web" ? 30000 : 60000,
                     currency_id: "COP",
                 },
-                back_url: "https://vendeyaonline.com/checkout?id=4EmuiW2J4wTmYRr",
+                back_url: "https://vendeyaonline.com/account",
             },
         });
         const { init_point, application_id } = subscription;

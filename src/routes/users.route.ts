@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createUser,
+  getAllUsers,
   getUserByEmail,
   loginUser,
   updatedPassword,
@@ -11,6 +12,7 @@ import { validateToken } from "../middlewares";
 
 const route = Router();
 
+route.get("/get-users", [validateToken, getAllUsers]);
 route.get("/get-user_byEmail/:email", getUserByEmail);
 route.post("/create-user", createUser);
 route.post("/login-user", loginUser);
