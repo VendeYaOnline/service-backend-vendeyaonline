@@ -11,4 +11,5 @@ route.post("/login-user", users_controller_1.loginUser);
 route.put("/update-password", [middlewares_1.validateToken, users_controller_1.updatedPassword]);
 route.put("/update-password_email", users_controller_1.updatedPasswordEmail);
 route.put("/update-user/:id", [middlewares_1.validateToken, users_controller_1.updatedUser]);
+route.delete("/delete-user/:id", [middlewares_1.validateToken, users_controller_1.deleteUser]);
 exports.default = route;

@@ -170,11 +170,15 @@ exports.updatedUser = updatedUser;
 const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
-        yield users_1.default.destroy({
+        const response = yield users_1.default.destroy({
             where: { id },
         });
-        res.status(204).json({ message: "User successfully deleted" });
-        return;
+        if (response === 0) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        else {
+            return res.status(204).json({ message: "User successfully deleted" });
+        }
     }
     catch (error) {
         res.status(404).json({ message: "User not found" });
