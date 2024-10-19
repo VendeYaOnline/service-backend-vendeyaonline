@@ -7,6 +7,7 @@ import {
   updatedPassword,
   updatedPasswordEmail,
   updatedUser,
+  deleteUser,
 } from "../controllers/users.controller";
 import { validateToken } from "../middlewares";
 
@@ -19,5 +20,6 @@ route.post("/login-user", loginUser);
 route.put("/update-password", [validateToken, updatedPassword]);
 route.put("/update-password_email", updatedPasswordEmail);
 route.put("/update-user/:id", [validateToken, updatedUser]);
+route.delete("/delete-user/:id", [validateToken, deleteUser]);
 
 export default route;

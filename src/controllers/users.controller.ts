@@ -161,11 +161,14 @@ export const updatedUser = async (req: Request, res: Response) => {
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    await User.destroy({
+    const response = await User.destroy({
       where: { id },
     });
-    res.status(204).json({ message: "User successfully deleted" });
-    return;
+    if (response === 0) {
+      return res.status(404).json({ message: "User not found" });
+    } else {
+      return res.status(204).json({ message: "User successfully deleted" });
+    }
   } catch (error) {
     res.status(404).json({ message: "User not found" });
     return;
