@@ -32,7 +32,7 @@ const Subscription = connect_1.sequelize.define("Subscription", {
             key: "id",
         },
         onUpdate: "CASCADE",
-        onDelete: "RESTRICT",
+        onDelete: "CASCADE",
     },
 }, {
     timestamps: true,
