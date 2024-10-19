@@ -6,11 +6,13 @@ import {
   getCanceledSuscription,
   deleteSuscription,
   deleteCanceledSuscription,
+  getAllSuscription,
 } from "../controllers/suscription.controller";
 import { validateToken } from "../middlewares";
 
 const route = Router();
 
+route.get("/get-suscriptions", [validateToken, getAllSuscription]);
 route.get("/get-suscription/:id", [validateToken, getSuscription]);
 route.get("/get-canceled_suscription/:id", [
   validateToken,

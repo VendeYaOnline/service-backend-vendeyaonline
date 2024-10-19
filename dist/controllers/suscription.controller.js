@@ -12,11 +12,31 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createCanceledSubscriptions = exports.createSuscription = void 0;
+exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createCanceledSubscriptions = exports.createSuscription = exports.getAllSuscription = void 0;
 const suscriptionSchema_1 = require("../schemas/suscriptionSchema");
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
 const users_1 = __importDefault(require("../models/users"));
 const canceled_subscriptions_1 = __importDefault(require("../models/canceled_subscriptions"));
+const getAllSuscription = (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const subscription = yield suscriptions_1.default.findAll();
+        if (subscription.length) {
+            res.status(200).json({ subscription });
+            return;
+        }
+        else {
+            res.status(200).json({ subscription: [] });
+            return;
+        }
+    }
+    catch (error) {
+        res.status(500).json({
+            error: `Error subscription - ${error.errors[0].message}`,
+        });
+        return;
+    }
+});
+exports.getAllSuscription = getAllSuscription;
 const createSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { error } = suscriptionSchema_1.suscriptionSchema.validate(req.body);
     if (error) {
