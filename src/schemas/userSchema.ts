@@ -22,3 +22,11 @@ export const formSchema = Joi.object({
   phone: Joi.string().required(),
   message: Joi.string().required(),
 });
+
+export const formSchemaUpdated = Joi.object({
+  name: Joi.string().optional(),
+  lastname: Joi.string().optional(),
+  email: Joi.string().email().optional(),
+  phone: Joi.string().optional(),
+  message: Joi.string().optional(),
+});

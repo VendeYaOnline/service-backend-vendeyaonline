@@ -2,7 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const form_controller_1 = require("../controllers/form.controller");
+const middlewares_1 = require("../middlewares");
 const route = (0, express_1.Router)();
+route.get("/get-forms", [middlewares_1.validateToken, form_controller_1.getAllForms]);
 route.post("/register-form", form_controller_1.registerForm);
-route.delete("/delete-form/:id", form_controller_1.deleteForm);
+route.put("/updated-form/:id", [middlewares_1.validateToken, form_controller_1.updatedForm]);
+route.delete("/delete-form/:id", [middlewares_1.validateToken, form_controller_1.deleteForm]);
 exports.default = route;
