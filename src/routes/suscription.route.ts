@@ -7,6 +7,7 @@ import {
   deleteSuscription,
   deleteCanceledSuscription,
   getAllSuscription,
+  updatedSuscription,
 } from "../controllers/suscription.controller";
 import { validateToken } from "../middlewares";
 
@@ -19,6 +20,7 @@ route.get("/get-canceled_suscription/:id", [
   getCanceledSuscription,
 ]);
 route.post("/create-suscription", [validateToken, createSuscription]);
+route.put("/updated-suscription/:id", [validateToken, updatedSuscription]);
 route.post("/create-canceled_suscription", [
   validateToken,
   createCanceledSubscriptions,

@@ -11,6 +11,7 @@ route.get("/get-canceled_suscription/:id", [
     suscription_controller_1.getCanceledSuscription,
 ]);
 route.post("/create-suscription", [middlewares_1.validateToken, suscription_controller_1.createSuscription]);
+route.put("/updated-suscription/:id", [middlewares_1.validateToken, suscription_controller_1.updatedSuscription]);
 route.post("/create-canceled_suscription", [
     middlewares_1.validateToken,
     suscription_controller_1.createCanceledSubscriptions,

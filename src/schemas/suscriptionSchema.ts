@@ -6,3 +6,10 @@ export const suscriptionSchema = Joi.object({
   date: Joi.string().required(),
   client: Joi.number().required(),
 });
+
+export const suscriptionSchemaUpdated = Joi.object({
+  price: Joi.number().optional(),
+  type: Joi.string().valid("Tienda Online", "Página web").optional(),
+  date: Joi.string().optional(),
+  client: Joi.number().optional(),
+});

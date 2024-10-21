@@ -1,5 +1,8 @@
 import { Request, Response } from "express";
-import { suscriptionSchema } from "../schemas/suscriptionSchema";
+import {
+  suscriptionSchema,
+  suscriptionSchemaUpdated,
+} from "../schemas/suscriptionSchema";
 import Subscription from "../models/suscriptions";
 import { SuscriptionI, UserI } from "../interfaces";
 import User from "../models/users";
@@ -59,6 +62,27 @@ export const createSuscription = async (req: Request, res: Response) => {
       res.status(500).json({
         error: `Error creating user - ${error.errors[0].message}`,
       });
+    }
+  }
+};
+
+export const updatedSuscription = async (req: Request, res: Response) => {
+  const { error } = suscriptionSchemaUpdated.validate(req.body);
+  if (error) {
+    res.status(400).json({ error: error.details[0].message });
+    return;
+  } else {
+    try {
+      const data = req.body;
+      const { id } = req.params;
+      await Subscription.update(data, {
+        where: { id },
+      });
+      res.status(200).json({ message: "Updated Subscription" });
+      return;
+    } catch (error) {
+      res.status(500).json({ error: "Error updating" });
+      return;
     }
   }
 };
