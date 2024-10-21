@@ -26,6 +26,24 @@ export const getAllSuscription = async (_req: Request, res: Response) => {
   }
 };
 
+export const getAllCancellations = async (_req: Request, res: Response) => {
+  try {
+    const subscription = await CanceledSubscription.findAll();
+    if (subscription.length) {
+      res.status(200).json({ subscription });
+      return;
+    } else {
+      res.status(200).json({ subscription: [] });
+      return;
+    }
+  } catch (error: any) {
+    res.status(500).json({
+      error: `Error subscription - ${error.errors[0].message}`,
+    });
+    return;
+  }
+};
+
 export const createSuscription = async (req: Request, res: Response) => {
   const { error } = suscriptionSchema.validate(req.body);
   if (error) {
