@@ -105,6 +105,27 @@ export const updatedSuscription = async (req: Request, res: Response) => {
   }
 };
 
+export const cancellationsSuscription = async (req: Request, res: Response) => {
+  const { error } = suscriptionSchemaUpdated.validate(req.body);
+  if (error) {
+    res.status(400).json({ error: error.details[0].message });
+    return;
+  } else {
+    try {
+      const data = req.body;
+      const { id } = req.params;
+      await CanceledSubscription.update(data, {
+        where: { id },
+      });
+      res.status(200).json({ message: "Updated Subscription" });
+      return;
+    } catch (error) {
+      res.status(500).json({ error: "Error updating" });
+      return;
+    }
+  }
+};
+
 export const createCanceledSubscriptions = async (
   req: Request,
   res: Response

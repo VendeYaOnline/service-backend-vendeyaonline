@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createCanceledSubscriptions = exports.updatedSuscription = exports.createSuscription = exports.getAllCancellations = exports.getAllSuscription = void 0;
+exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createCanceledSubscriptions = exports.cancellationsSuscription = exports.updatedSuscription = exports.createSuscription = exports.getAllCancellations = exports.getAllSuscription = void 0;
 const suscriptionSchema_1 = require("../schemas/suscriptionSchema");
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
 const users_1 = __importDefault(require("../models/users"));
@@ -124,6 +124,29 @@ const updatedSuscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.updatedSuscription = updatedSuscription;
+const cancellationsSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { error } = suscriptionSchema_1.suscriptionSchemaUpdated.validate(req.body);
+    if (error) {
+        res.status(400).json({ error: error.details[0].message });
+        return;
+    }
+    else {
+        try {
+            const data = req.body;
+            const { id } = req.params;
+            yield canceled_subscriptions_1.default.update(data, {
+                where: { id },
+            });
+            res.status(200).json({ message: "Updated Subscription" });
+            return;
+        }
+        catch (error) {
+            res.status(500).json({ error: "Error updating" });
+            return;
+        }
+    }
+});
+exports.cancellationsSuscription = cancellationsSuscription;
 const createCanceledSubscriptions = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { error } = suscriptionSchema_1.suscriptionSchema.validate(req.body);
     if (error) {
