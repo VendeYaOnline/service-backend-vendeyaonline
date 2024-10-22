@@ -16,6 +16,22 @@ app.set("port", process.env.PORT || 5000);
 app.use(express.json());
 app.use(cors(corsOptions));
 
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    "https://vendeyaonline.com",
+    "https://dashboard-vendeyaonline.vercel.app",
+  ];
+
+  const origin = req.headers.origin;
+
+  // Verificar si el origen está en la lista de permitidos
+  if (origin && allowedOrigins.includes(origin)) {
+    next(); // Si el origen es permitido, continuar
+  } else {
+    res.status(403).json({ message: "Forbidden: Origin not allowed" }); // Responder con error 403
+  }
+});
+
 //ROUTES
 app.use("/api", routeUsers);
 app.use("/api", routeSuscription);
