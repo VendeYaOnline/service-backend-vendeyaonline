@@ -22,3 +22,12 @@ export const validateToken = (
     return;
   }
 };
+
+export const corsOptions = {
+  origin: [
+    "https://vendeyaonline.com",
+    "https://dashboard-vendeyaonline.vercel.app",
+  ],
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  credentials: true, // Si necesitas permitir cookies
+};

@@ -5,6 +5,7 @@ import routeUsers from "./routes/users.route";
 import routeSuscription from "./routes/suscription.route";
 import routeMercado from "./routes/mercado.route";
 import routeForm from "./routes/form.route";
+import { corsOptions } from "./middlewares";
 const app = express();
 dotenv.config();
 
@@ -13,7 +14,7 @@ app.set("port", process.env.PORT || 5000);
 
 //MIDLEWARES
 app.use(express.json());
-app.use(cors());
+app.use(cors(corsOptions));
 
 //ROUTES
 app.use("/api", routeUsers);
