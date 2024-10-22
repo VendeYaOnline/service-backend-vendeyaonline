@@ -152,7 +152,8 @@ const updatedUser = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     try {
         const { id } = req.params;
         const data = req.body;
-        yield users_1.default.update(Object.assign({}, data), {
+        const hashedPassword = yield bcrypt_1.default.hash(data.password, 10);
+        yield users_1.default.update(Object.assign(Object.assign({}, data), { password: hashedPassword }), {
             where: { id },
         });
         const user = yield users_1.default.findOne({ where: { email: data.email } });

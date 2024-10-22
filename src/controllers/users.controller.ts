@@ -141,8 +141,9 @@ export const updatedUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const data = req.body;
+    const hashedPassword = await bcrypt.hash(data.password, 10);
     await User.update(
-      { ...data },
+      { ...data, password: hashedPassword },
       {
         where: { id },
       }
@@ -170,7 +171,7 @@ export const deleteUser = async (req: Request, res: Response) => {
       return res.status(204).json({ message: "User successfully deleted" });
     }
   } catch (error) {
-    console.log("asdasd",error)
+    console.log("asdasd", error);
     res.status(404).json({ message: "User not found" });
     return;
   }
