@@ -21,12 +21,17 @@ export const getAllForms = async (_req: Request, res: Response) => {
 export const registerForm = async (req: Request, res: Response) => {
   const data = req.body;
   const { error } = formSchema.validate(req.body);
-  if (error) {
-    res.status(400).json({ error: error.details[0].message });
-    return;
-  } else {
-    await Form.create(data);
-    res.status(201).json({ message: "Registered message" });
+  try {
+    if (error) {
+      res.status(400).json({ error: error.details[0].message });
+      return;
+    } else {
+      await Form.create(data);
+      res.status(201).json({ message: "Registered message" });
+      return;
+    }
+  } catch (error: any) {
+    res.status(400).json({ error: error.errors[0].message });
     return;
   }
 };
