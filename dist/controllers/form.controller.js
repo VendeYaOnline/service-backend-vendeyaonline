@@ -36,13 +36,19 @@ exports.getAllForms = getAllForms;
 const registerForm = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const data = req.body;
     const { error } = userSchema_1.formSchema.validate(req.body);
-    if (error) {
-        res.status(400).json({ error: error.details[0].message });
-        return;
+    try {
+        if (error) {
+            res.status(400).json({ error: error.details[0].message });
+            return;
+        }
+        else {
+            yield form_1.default.create(data);
+            res.status(201).json({ message: "Registered message" });
+            return;
+        }
     }
-    else {
-        yield form_1.default.create(data);
-        res.status(201).json({ message: "Registered message" });
+    catch (error) {
+        res.status(400).json({ error: error.errors[0].message });
         return;
     }
 });

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validateToken = void 0;
+exports.corsOptions = exports.validateToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const validateToken = (req, res, next) => {
     var _a;
@@ -23,3 +23,11 @@ const validateToken = (req, res, next) => {
     }
 };
 exports.validateToken = validateToken;
+exports.corsOptions = {
+    origin: [
+        "https://vendeyaonline.com",
+        "https://dashboard-vendeyaonline.vercel.app",
+    ],
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    credentials: true, // Si necesitas permitir cookies
+};
