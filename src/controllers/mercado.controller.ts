@@ -18,7 +18,7 @@ export const createSubscription = async (req: Request, res: Response) => {
         auto_recurring: {
           frequency: 1,
           frequency_type: "months",
-          transaction_amount: plan === "web" ? 30000 : 60000,
+          transaction_amount: plan === "web" ? 30000 : 80000,
           currency_id: "COP",
         },
         back_url: "https://vendeyaonline.com/account",
