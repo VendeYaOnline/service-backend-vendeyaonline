@@ -14,8 +14,12 @@ const Subscription = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    quantityProducts: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
     type: {
-      type: DataTypes.ENUM("Tienda Online", "Página web"),
+      type: DataTypes.ENUM("Emprendedor", "Crecimiento", "Corporativo"),
       allowNull: false,
     },
     date: {
@@ -43,5 +47,6 @@ const Subscription = sequelize.define(
 
 Subscription.belongsTo(User, { foreignKey: "client" });
 User.hasMany(Subscription, { foreignKey: "client" });
+
 
 export default Subscription;
