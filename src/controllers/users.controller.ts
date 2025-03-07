@@ -187,3 +187,7 @@ export const getAllUsers = async (_req: Request, res: Response) => {
     return;
   }
 };
+
+export const verifyToken = async (_req: Request, res: Response) => {
+  res.status(200).json({ message: "Valid token" });
+};
