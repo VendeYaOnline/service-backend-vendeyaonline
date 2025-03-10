@@ -13,8 +13,9 @@ dotenv.config();
 app.set("port", process.env.PORT || 5000);
 
 //MIDLEWARES
-app.use(express.json());
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+app.use(express.json());
 
 //ROUTES
 app.use("/api", routeUsers);
