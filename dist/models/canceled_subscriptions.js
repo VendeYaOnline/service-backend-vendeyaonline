@@ -16,8 +16,12 @@ const CanceledSubscription = connect_1.sequelize.define("CanceledSubscription", 
         type: sequelize_1.DataTypes.STRING,
         allowNull: false,
     },
+    quantityProducts: {
+        type: sequelize_1.DataTypes.INTEGER,
+        allowNull: false,
+    },
     type: {
-        type: sequelize_1.DataTypes.ENUM("Tienda Online", "Página web"),
+        type: sequelize_1.DataTypes.ENUM("Emprendedor", "Crecimiento", "Corporativo"),
         allowNull: false,
     },
     date: {

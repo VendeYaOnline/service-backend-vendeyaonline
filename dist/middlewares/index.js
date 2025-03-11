@@ -18,7 +18,7 @@ const validateToken = (req, res, next) => {
         next();
     }
     catch (error) {
-        res.status(400).json({ message: "Invalid token." });
+        res.status(400).json({ message: "Invalid token" });
         return;
     }
 };
@@ -27,7 +27,9 @@ exports.corsOptions = {
     origin: [
         "https://vendeyaonline.com",
         "https://dashboard-vendeyaonline.vercel.app",
+        "https://www.vendeyaonline.com",
     ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true, // Si necesitas permitir cookies
 };

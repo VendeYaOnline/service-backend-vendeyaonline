@@ -4,6 +4,7 @@ const express_1 = require("express");
 const users_controller_1 = require("../controllers/users.controller");
 const middlewares_1 = require("../middlewares");
 const route = (0, express_1.Router)();
+route.get("/verify-token", [middlewares_1.validateToken, users_controller_1.verifyToken]);
 route.get("/get-users", [middlewares_1.validateToken, users_controller_1.getAllUsers]);
 route.get("/get-user_byEmail/:email", users_controller_1.getUserByEmail);
 route.post("/create-user", users_controller_1.createUser);

@@ -7,13 +7,19 @@ exports.suscriptionSchemaUpdated = exports.suscriptionSchema = void 0;
 const joi_1 = __importDefault(require("joi"));
 exports.suscriptionSchema = joi_1.default.object({
     price: joi_1.default.number().required(),
-    type: joi_1.default.string().valid("Tienda Online", "Página web").required(),
+    quantityProducts: joi_1.default.number().required(),
+    type: joi_1.default.string()
+        .valid("Emprendedor", "Crecimiento", "Corporativo")
+        .required(),
     date: joi_1.default.string().required(),
     client: joi_1.default.number().required(),
 });
 exports.suscriptionSchemaUpdated = joi_1.default.object({
     price: joi_1.default.number().optional(),
-    type: joi_1.default.string().valid("Tienda Online", "Página web").optional(),
+    quantityProducts: joi_1.default.number().optional(),
+    type: joi_1.default.string()
+        .valid("Emprendedor", "Crecimiento", "Corporativo")
+        .optional(),
     date: joi_1.default.string().optional(),
     client: joi_1.default.number().optional(),
 });
