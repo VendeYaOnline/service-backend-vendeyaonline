@@ -151,6 +151,7 @@ exports.getUserByEmail = getUserByEmail;
 const updatedUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
+        console.log("id del usuario", id);
         const data = req.body;
         const hashedPassword = yield bcrypt_1.default.hash(data.password, 10);
         yield users_1.default.update(Object.assign(Object.assign({}, data), { password: hashedPassword }), {

@@ -140,6 +140,7 @@ export const getUserByEmail = async (req: Request, res: Response) => {
 export const updatedUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    console.log("id del usuario", id);
     const data = req.body;
     const hashedPassword = await bcrypt.hash(data.password, 10);
     await User.update(
