@@ -89,19 +89,31 @@ export const loginUser = async (req: Request, res: Response) => {
 
 export const updatedPassword = async (req: Request, res: Response) => {
   try {
-    const { id, newPassword } = req.body;
+    const { email, password, newPassword } = req.body;
+
+    // Buscar el usuario por email
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Verificar si la contraseña actual es correcta
+    const { dataValues } = user as { dataValues: UserI };
+    const isMatch = await bcrypt.compare(password, dataValues.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Incorrect current password" });
+    }
+
+    // Hashear la nueva contraseña
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await User.update(
-      { password: hashedPassword },
-      {
-        where: { id },
-      }
-    );
-    res.status(200).json({ message: "Updated password" });
-    return;
+
+    // Actualizar la contraseña en la base de datos
+    await User.update({ password: hashedPassword }, { where: { email } });
+
+    res.status(200).json({ message: "Password updated successfully" });
   } catch (error) {
-    res.status(500).json({ error: "Error updating password" });
-    return;
+    res.status(500).json({ message: "Error updating password" });
   }
 };
 
