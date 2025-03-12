@@ -140,11 +140,9 @@ export const getUserByEmail = async (req: Request, res: Response) => {
 export const updatedUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    console.log("id del usuario", id);
     const data = req.body;
-    const hashedPassword = await bcrypt.hash(data.password, 10);
     await User.update(
-      { ...data, password: hashedPassword },
+      { ...data },
       {
         where: { id },
       }
@@ -155,6 +153,7 @@ export const updatedUser = async (req: Request, res: Response) => {
     res.status(201).json({ ...rest });
     return;
   } catch (error) {
+    console.log("error updated user", error);
     res.status(404).json({ error: "User not found" });
     return;
   }
@@ -172,7 +171,7 @@ export const deleteUser = async (req: Request, res: Response) => {
       return res.status(204).json({ message: "User successfully deleted" });
     }
   } catch (error) {
-    console.log("asdasd", error);
+    console.log("error delete user", error);
     res.status(404).json({ message: "User not found" });
     return;
   }

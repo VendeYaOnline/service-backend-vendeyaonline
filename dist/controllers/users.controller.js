@@ -151,10 +151,8 @@ exports.getUserByEmail = getUserByEmail;
 const updatedUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
-        console.log("id del usuario", id);
         const data = req.body;
-        const hashedPassword = yield bcrypt_1.default.hash(data.password, 10);
-        yield users_1.default.update(Object.assign(Object.assign({}, data), { password: hashedPassword }), {
+        yield users_1.default.update(Object.assign({}, data), {
             where: { id },
         });
         const user = yield users_1.default.findOne({ where: { email: data.email } });
@@ -164,6 +162,7 @@ const updatedUser = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         return;
     }
     catch (error) {
+        console.log("error updated user", error);
         res.status(404).json({ error: "User not found" });
         return;
     }
@@ -183,7 +182,7 @@ const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         }
     }
     catch (error) {
-        console.log("asdasd", error);
+        console.log("error delete user", error);
         res.status(404).json({ message: "User not found" });
         return;
     }
