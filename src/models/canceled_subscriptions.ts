@@ -11,7 +11,7 @@ const CanceledSubscription = sequelize.define(
       primaryKey: true,
     },
     price: {
-      type: DataTypes.STRING,
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
     quantityProducts: {

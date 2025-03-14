@@ -137,6 +137,7 @@ export const createCanceledSubscriptions = async (
   } else {
     try {
       const data = req.body;
+      console.log("data",data)
       const user = await User.findByPk(data.client, { include: Subscription });
       if (!user) {
         res.status(404).json({
@@ -179,15 +180,35 @@ export const getSuscription = async (req: Request, res: Response) => {
     return;
   } else {
     try {
-      const user = await User.findOne({ where: { id }, include: Subscription });
+      const user = await User.findOne({
+        where: { id },
+        include: [Subscription, CanceledSubscription],
+      });
       const { dataValues } = user as { dataValues: UserI };
-      if (dataValues.Subscriptions.length) {
-        res
-          .status(200)
-          .json({ subscription: [dataValues.Subscriptions[0].dataValues] });
+      if (
+        dataValues.Subscriptions.length &&
+        !dataValues.CanceledSubscriptions.length
+      ) {
+        res.status(200).json({
+          subscription: {
+            ...dataValues.Subscriptions[0].dataValues,
+            status: "Activo",
+          },
+        });
+        return;
+      } else if (
+        dataValues.CanceledSubscriptions.length &&
+        !dataValues.Subscriptions.length
+      ) {
+        res.status(200).json({
+          subscription: {
+            ...dataValues.CanceledSubscriptions[0].dataValues,
+            status: "Proceso de cancelación",
+          },
+        });
         return;
       } else {
-        res.status(200).json({ subscription: [] });
+        res.status(200).json({ subscription: undefined });
         return;
       }
     } catch (error: any) {

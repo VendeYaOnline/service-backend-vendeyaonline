@@ -103,17 +103,26 @@ const loginUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
 exports.loginUser = loginUser;
 const updatedPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { id, newPassword } = req.body;
+        const { email, password, newPassword } = req.body;
+        // Buscar el usuario por email
+        const user = yield users_1.default.findOne({ where: { email } });
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+        // Verificar si la contraseña actual es correcta
+        const { dataValues } = user;
+        const isMatch = yield bcrypt_1.default.compare(password, dataValues.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: "Incorrect current password" });
+        }
+        // Hashear la nueva contraseña
         const hashedPassword = yield bcrypt_1.default.hash(newPassword, 10);
-        yield users_1.default.update({ password: hashedPassword }, {
-            where: { id },
-        });
-        res.status(200).json({ message: "Updated password" });
-        return;
+        // Actualizar la contraseña en la base de datos
+        yield users_1.default.update({ password: hashedPassword }, { where: { email } });
+        res.status(200).json({ message: "Password updated successfully" });
     }
     catch (error) {
-        res.status(500).json({ error: "Error updating password" });
-        return;
+        res.status(500).json({ message: "Error updating password" });
     }
 });
 exports.updatedPassword = updatedPassword;

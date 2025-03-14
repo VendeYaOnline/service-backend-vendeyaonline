@@ -156,6 +156,7 @@ const createCanceledSubscriptions = (req, res) => __awaiter(void 0, void 0, void
     else {
         try {
             const data = req.body;
+            console.log("data", data);
             const user = yield users_1.default.findByPk(data.client, { include: suscriptions_1.default });
             if (!user) {
                 res.status(404).json({
@@ -200,16 +201,27 @@ const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function*
     }
     else {
         try {
-            const user = yield users_1.default.findOne({ where: { id }, include: suscriptions_1.default });
+            const user = yield users_1.default.findOne({
+                where: { id },
+                include: [suscriptions_1.default, canceled_subscriptions_1.default],
+            });
             const { dataValues } = user;
-            if (dataValues.Subscriptions.length) {
-                res
-                    .status(200)
-                    .json({ subscription: [dataValues.Subscriptions[0].dataValues] });
+            if (dataValues.Subscriptions.length &&
+                !dataValues.CanceledSubscriptions.length) {
+                res.status(200).json({
+                    subscription: Object.assign(Object.assign({}, dataValues.Subscriptions[0].dataValues), { status: "Activo" }),
+                });
+                return;
+            }
+            else if (dataValues.CanceledSubscriptions.length &&
+                !dataValues.Subscriptions.length) {
+                res.status(200).json({
+                    subscription: Object.assign(Object.assign({}, dataValues.CanceledSubscriptions[0].dataValues), { status: "Proceso de cancelación" }),
+                });
                 return;
             }
             else {
-                res.status(200).json({ subscription: [] });
+                res.status(200).json({ subscription: undefined });
                 return;
             }
         }

@@ -13,7 +13,7 @@ const CanceledSubscription = connect_1.sequelize.define("CanceledSubscription", 
         primaryKey: true,
     },
     price: {
-        type: sequelize_1.DataTypes.STRING,
+        type: sequelize_1.DataTypes.INTEGER,
         allowNull: false,
     },
     quantityProducts: {
