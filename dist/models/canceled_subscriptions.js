@@ -28,6 +28,10 @@ const CanceledSubscription = connect_1.sequelize.define("CanceledSubscription", 
         type: sequelize_1.DataTypes.STRING,
         allowNull: false,
     },
+    date_limit: {
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: false,
+    },
     client: {
         type: sequelize_1.DataTypes.INTEGER,
         allowNull: false,
