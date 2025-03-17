@@ -10,6 +10,7 @@ import {
   updatedSuscription,
   getAllCancellations,
   cancellationsSuscription,
+  createActiveSubscriptions,
 } from "../controllers/suscription.controller";
 import { validateToken } from "../middlewares";
 
@@ -26,6 +27,10 @@ route.post("/create-suscription", [validateToken, createSuscription]);
 route.post("/create-canceled_suscription", [
   validateToken,
   createCanceledSubscriptions,
+]);
+route.post("/create-active_suscription", [
+  validateToken,
+  createActiveSubscriptions,
 ]);
 route.put("/updated-suscription/:id", [validateToken, updatedSuscription]);
 route.put("/updated-cancellations/:id", [

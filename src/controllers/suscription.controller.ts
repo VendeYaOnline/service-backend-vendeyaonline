@@ -137,7 +137,6 @@ export const createCanceledSubscriptions = async (
   } else {
     try {
       const data = req.body;
-      console.log("data",data)
       const user = await User.findByPk(data.client, { include: Subscription });
       if (!user) {
         res.status(404).json({
@@ -152,6 +151,55 @@ export const createCanceledSubscriptions = async (
           });
           const canceledSubscription = await CanceledSubscription.create(data);
           const { dataValues: dataSubscription } = canceledSubscription as {
+            dataValues: SuscriptionI;
+          };
+          res.status(201).json({
+            message: `Subscription created successfully ${dataSubscription.type}`,
+          });
+          return;
+        } else {
+          res.status(409).json({
+            message: "The user does not have a subscription",
+          });
+          return;
+        }
+      }
+    } catch (error: any) {
+      res.status(500).json({
+        error: `Error creating user - ${error.errors[0].message}`,
+      });
+    }
+  }
+};
+
+export const createActiveSubscriptions = async (
+  req: Request,
+  res: Response
+) => {
+  const { error } = suscriptionSchema.validate(req.body);
+  if (error) {
+    res.status(400).json({ error: error.details[0].message });
+    return;
+  } else {
+    try {
+      const data = req.body;
+      const user = await User.findByPk(data.client, {
+        include: CanceledSubscription,
+      });
+      if (!user) {
+        res.status(404).json({
+          message: "The client does not exist",
+        });
+        return;
+      } else {
+        const { dataValues } = user as { dataValues: UserI };
+        console.log("dataValues", dataValues);
+        if (dataValues.CanceledSubscriptions.length) {
+          await CanceledSubscription.destroy({
+            where: { id: dataValues.CanceledSubscriptions[0].dataValues.id },
+          });
+          const subscription = await Subscription.create(data);
+          const { dataValues: dataSubscription } = subscription as {
             dataValues: SuscriptionI;
           };
           res.status(201).json({

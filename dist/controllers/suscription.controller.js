@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createCanceledSubscriptions = exports.cancellationsSuscription = exports.updatedSuscription = exports.createSuscription = exports.getAllCancellations = exports.getAllSuscription = void 0;
+exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createActiveSubscriptions = exports.createCanceledSubscriptions = exports.cancellationsSuscription = exports.updatedSuscription = exports.createSuscription = exports.getAllCancellations = exports.getAllSuscription = void 0;
 const suscriptionSchema_1 = require("../schemas/suscriptionSchema");
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
 const users_1 = __importDefault(require("../models/users"));
@@ -156,7 +156,6 @@ const createCanceledSubscriptions = (req, res) => __awaiter(void 0, void 0, void
     else {
         try {
             const data = req.body;
-            console.log("data", data);
             const user = yield users_1.default.findByPk(data.client, { include: suscriptions_1.default });
             if (!user) {
                 res.status(404).json({
@@ -193,6 +192,54 @@ const createCanceledSubscriptions = (req, res) => __awaiter(void 0, void 0, void
     }
 });
 exports.createCanceledSubscriptions = createCanceledSubscriptions;
+const createActiveSubscriptions = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { error } = suscriptionSchema_1.suscriptionSchema.validate(req.body);
+    if (error) {
+        res.status(400).json({ error: error.details[0].message });
+        return;
+    }
+    else {
+        try {
+            const data = req.body;
+            const user = yield users_1.default.findByPk(data.client, {
+                include: canceled_subscriptions_1.default,
+            });
+            if (!user) {
+                res.status(404).json({
+                    message: "The client does not exist",
+                });
+                return;
+            }
+            else {
+                const { dataValues } = user;
+                console.log("dataValues", dataValues);
+                if (dataValues.CanceledSubscriptions.length) {
+                    yield canceled_subscriptions_1.default.destroy({
+                        where: { id: dataValues.CanceledSubscriptions[0].dataValues.id },
+                    });
+                    const subscription = yield suscriptions_1.default.create(data);
+                    const { dataValues: dataSubscription } = subscription;
+                    res.status(201).json({
+                        message: `Subscription created successfully ${dataSubscription.type}`,
+                    });
+                    return;
+                }
+                else {
+                    res.status(409).json({
+                        message: "The user does not have a subscription",
+                    });
+                    return;
+                }
+            }
+        }
+        catch (error) {
+            res.status(500).json({
+                error: `Error creating user - ${error.errors[0].message}`,
+            });
+        }
+    }
+});
+exports.createActiveSubscriptions = createActiveSubscriptions;
 const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     if (!id || id === "undefined") {

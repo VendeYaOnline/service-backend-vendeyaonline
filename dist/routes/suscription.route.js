@@ -16,6 +16,10 @@ route.post("/create-canceled_suscription", [
     middlewares_1.validateToken,
     suscription_controller_1.createCanceledSubscriptions,
 ]);
+route.post("/create-active_suscription", [
+    middlewares_1.validateToken,
+    suscription_controller_1.createActiveSubscriptions,
+]);
 route.put("/updated-suscription/:id", [middlewares_1.validateToken, suscription_controller_1.updatedSuscription]);
 route.put("/updated-cancellations/:id", [
     middlewares_1.validateToken,

@@ -7,6 +7,7 @@ export const suscriptionSchema = Joi.object({
     .valid("Emprendedor", "Crecimiento", "Corporativo")
     .required(),
   date: Joi.string().required(),
+  date_limit: Joi.string().optional(),
   client: Joi.number().required(),
 });
 
