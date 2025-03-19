@@ -12,7 +12,7 @@ export const createSubscription = async (req: Request, res: Response) => {
   });
   const preapproval = new PreApproval(client);
   try {
-    const { plan, email, amount } = req.body;
+    const { plan, email, amount, user_id } = req.body;
 
     const subscription = await preapproval.create({
       body: {
@@ -26,7 +26,7 @@ export const createSubscription = async (req: Request, res: Response) => {
         },
         back_url: "https://vendeyaonline.com/account",
         status: "pending",
-        external_reference: "10",
+        external_reference: user_id,
       },
     });
     const { init_point, application_id } = subscription;

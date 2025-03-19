@@ -24,7 +24,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
     });
     const preapproval = new mercadopago_1.PreApproval(client);
     try {
-        const { plan, email, amount } = req.body;
+        const { plan, email, amount, user_id } = req.body;
         const subscription = yield preapproval.create({
             body: {
                 payer_email: "test_user_1539335675@testuser.com",
@@ -37,7 +37,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
                 },
                 back_url: "https://vendeyaonline.com/account",
                 status: "pending",
-                external_reference: "10",
+                external_reference: user_id,
             },
         });
         const { init_point, application_id } = subscription;
