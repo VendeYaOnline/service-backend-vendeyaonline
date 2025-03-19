@@ -8,9 +8,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.webhook = exports.createSubscription = void 0;
 const mercadopago_1 = require("mercadopago");
+const axios_1 = __importDefault(require("axios"));
+const users_1 = __importDefault(require("../models/users"));
+const suscriptions_1 = __importDefault(require("../models/suscriptions"));
+const utils_1 = require("../utils");
 const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const client = new mercadopago_1.MercadoPagoConfig({
         accessToken: process.env.ACCESS_TOKEN,
@@ -42,12 +49,47 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.createSubscription = createSubscription;
-const webhook = (req, res) => {
+const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { action, type } = req.body;
+        const { action, type, data } = req.body;
         if (type === "subscription_authorized_payment" && action === "created") {
-            const subscriptionId = req.body.data.id;
-            console.log("Pago aprobado:", req.body);
+            // Paso 1: Consultar la API de Mercado Pago
+            const paymentId = data.id;
+            const mercadopagoResponse = yield axios_1.default.get(`https://api.mercadopago.com/authorized_payments/${paymentId}`, {
+                headers: {
+                    Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+                    "Content-Type": "application/json",
+                },
+            });
+            const paymentData = mercadopagoResponse.data;
+            // Paso 2: Extraer el external_reference como ID del usuario
+            const clientId = paymentData.external_reference;
+            // Paso 3: Validar el usuario en la base de datos
+            const user = yield users_1.default.findByPk(clientId, {
+                include: [suscriptions_1.default],
+            });
+            if (!user) {
+                console.log("El cliente no existe");
+                res.sendStatus(200);
+                return;
+            }
+            const { dataValues } = user;
+            // Paso 4: Verificar si ya tiene una suscripción activa
+            if (dataValues.Subscriptions.length) {
+                console.log("El usuario ya tiene una suscripción activa");
+                res.sendStatus(200);
+                return;
+            }
+            // Paso 5: Crear la suscripción con los datos de Mercado Pago
+            const subscriptionData = {
+                client: clientId,
+                price: Math.round(paymentData.transaction_amount),
+                quantityProducts: 100,
+                type: (0, utils_1.getSubscriptionType)(paymentData.reason),
+                date: (0, utils_1.formatDate)(paymentData.date_created),
+            };
+            const subscription = yield suscriptions_1.default.create(subscriptionData);
+            console.log("Suscripción creada:", subscription.dataValues);
         }
         res.sendStatus(200);
     }
@@ -55,5 +97,5 @@ const webhook = (req, res) => {
         console.error("Error procesando la notificación:", error);
         res.sendStatus(500);
     }
-};
+});
 exports.webhook = webhook;

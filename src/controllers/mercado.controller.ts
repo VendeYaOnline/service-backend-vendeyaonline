@@ -1,5 +1,10 @@
 import { Request, Response } from "express";
 import { MercadoPagoConfig, PreApproval } from "mercadopago";
+import axios from "axios";
+import User from "../models/users";
+import Subscription from "../models/suscriptions";
+import { UserI } from "../interfaces";
+import { formatDate, getSubscriptionType } from "../utils";
 
 export const createSubscription = async (req: Request, res: Response) => {
   const client = new MercadoPagoConfig({
@@ -32,12 +37,59 @@ export const createSubscription = async (req: Request, res: Response) => {
   }
 };
 
-export const webhook = (req: Request, res: Response) => {
+export const webhook = async (req: Request, res: Response) => {
   try {
-    const { action, type } = req.body;
+    const { action, type, data } = req.body;
+
     if (type === "subscription_authorized_payment" && action === "created") {
-      const subscriptionId = req.body.data.id;
-      console.log("Pago aprobado:", req.body);
+      // Paso 1: Consultar la API de Mercado Pago
+      const paymentId = data.id;
+      const mercadopagoResponse = await axios.get(
+        `https://api.mercadopago.com/authorized_payments/${paymentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const paymentData = mercadopagoResponse.data;
+
+      // Paso 2: Extraer el external_reference como ID del usuario
+      const clientId = paymentData.external_reference;
+
+      // Paso 3: Validar el usuario en la base de datos
+      const user = await User.findByPk(clientId, {
+        include: [Subscription],
+      });
+
+      if (!user) {
+        console.log("El cliente no existe");
+        res.sendStatus(200);
+        return;
+      }
+
+      const { dataValues } = user as { dataValues: UserI };
+
+      // Paso 4: Verificar si ya tiene una suscripción activa
+      if (dataValues.Subscriptions.length) {
+        console.log("El usuario ya tiene una suscripción activa");
+        res.sendStatus(200);
+        return;
+      }
+
+      // Paso 5: Crear la suscripción con los datos de Mercado Pago
+      const subscriptionData = {
+        client: clientId,
+        price: Math.round(paymentData.transaction_amount),
+        quantityProducts: 100,
+        type: getSubscriptionType(paymentData.reason),
+        date: formatDate(paymentData.date_created),
+      };
+
+      const subscription = await Subscription.create(subscriptionData);
+      console.log("Suscripción creada:", subscription.dataValues);
     }
 
     res.sendStatus(200);
