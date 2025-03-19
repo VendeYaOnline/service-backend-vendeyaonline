@@ -30,6 +30,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
                 },
                 back_url: "https://vendeyaonline.com/account",
                 status: "pending",
+                external_reference: "10",
             },
         });
         const { init_point, application_id } = subscription;
@@ -43,15 +44,12 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
 exports.createSubscription = createSubscription;
 const webhook = (req, res) => {
     try {
-        console.log("Notificación recibida:", req.body);
-        // Verifica si la notificación es de tipo suscripción
-        if (req.body.action === "subscription_create" ||
-            req.body.action === "subscription_update") {
+        const { action, type } = req.body;
+        if (type === "subscription_authorized_payment" && action === "created") {
             const subscriptionId = req.body.data.id;
-            console.log("ID de la suscripción:", subscriptionId);
-            // Aquí puedes consultar la API de Mercado Pago si necesitas más detalles
+            console.log("Pago aprobado:", req.body);
         }
-        res.sendStatus(200); // Responde a Mercado Pago para confirmar recepción
+        res.sendStatus(200);
     }
     catch (error) {
         console.error("Error procesando la notificación:", error);
