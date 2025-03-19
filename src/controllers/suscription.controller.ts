@@ -193,7 +193,6 @@ export const createActiveSubscriptions = async (
         return;
       } else {
         const { dataValues } = user as { dataValues: UserI };
-        console.log("dataValues", dataValues);
         if (dataValues.CanceledSubscriptions.length) {
           await CanceledSubscription.destroy({
             where: { id: dataValues.CanceledSubscriptions[0].dataValues.id },

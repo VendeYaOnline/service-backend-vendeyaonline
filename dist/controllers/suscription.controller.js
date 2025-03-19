@@ -212,7 +212,6 @@ const createActiveSubscriptions = (req, res) => __awaiter(void 0, void 0, void 0
             }
             else {
                 const { dataValues } = user;
-                console.log("dataValues", dataValues);
                 if (dataValues.CanceledSubscriptions.length) {
                     yield canceled_subscriptions_1.default.destroy({
                         where: { id: dataValues.CanceledSubscriptions[0].dataValues.id },

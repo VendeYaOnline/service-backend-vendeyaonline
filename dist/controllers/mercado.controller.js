@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createSubscription = void 0;
+exports.webhook = exports.createSubscription = void 0;
 const mercadopago_1 = require("mercadopago");
 const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const client = new mercadopago_1.MercadoPagoConfig({
@@ -17,19 +17,19 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
     });
     const preapproval = new mercadopago_1.PreApproval(client);
     try {
-        const { plan, email } = req.body;
+        const { plan, email, amount } = req.body;
         const subscription = yield preapproval.create({
             body: {
-                payer_email: email,
-                reason: plan === "web" ? "Página web" : "Tienda online",
-                external_reference: email + "-" + (plan === "web" ? "Página web" : "Tienda online"),
+                payer_email: "test_user_1539335675@testuser.com",
+                reason: "Plan " + plan,
                 auto_recurring: {
                     frequency: 1,
                     frequency_type: "months",
-                    transaction_amount: plan === "web" ? 30000 : 80000,
+                    transaction_amount: amount,
                     currency_id: "COP",
                 },
                 back_url: "https://vendeyaonline.com/account",
+                status: "pending",
             },
         });
         const { init_point, application_id } = subscription;
@@ -41,3 +41,21 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.createSubscription = createSubscription;
+const webhook = (req, res) => {
+    try {
+        console.log("Notificación recibida:", req.body);
+        // Verifica si la notificación es de tipo suscripción
+        if (req.body.action === "subscription_create" ||
+            req.body.action === "subscription_update") {
+            const subscriptionId = req.body.data.id;
+            console.log("ID de la suscripción:", subscriptionId);
+            // Aquí puedes consultar la API de Mercado Pago si necesitas más detalles
+        }
+        res.sendStatus(200); // Responde a Mercado Pago para confirmar recepción
+    }
+    catch (error) {
+        console.error("Error procesando la notificación:", error);
+        res.sendStatus(500);
+    }
+};
+exports.webhook = webhook;
