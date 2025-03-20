@@ -87,7 +87,7 @@ const loginUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 }
                 const { dataValues } = user;
                 const token = jsonwebtoken_1.default.sign({ id: dataValues.id, email: dataValues.email }, process.env.JWT_SECRET, {
-                    expiresIn: "10h",
+                    expiresIn: "2d",
                 });
                 const { password: password2 } = dataValues, rest = __rest(dataValues, ["password"]);
                 res.status(200).json({ user: rest, token });

@@ -72,7 +72,7 @@ export const loginUser = async (req: Request, res: Response) => {
           { id: dataValues.id, email: dataValues.email },
           process.env.JWT_SECRET!,
           {
-            expiresIn: "10h",
+            expiresIn: "2d",
           }
         );
 

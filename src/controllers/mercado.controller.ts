@@ -12,7 +12,7 @@ export const createSubscription = async (req: Request, res: Response) => {
   });
   const preapproval = new PreApproval(client);
   try {
-    const { plan, email, amount, user_id } = req.body;
+    const { plan, email, amount, user_id, quantityProducts } = req.body;
 
     const subscription = await preapproval.create({
       body: {
@@ -26,7 +26,7 @@ export const createSubscription = async (req: Request, res: Response) => {
         },
         back_url: "https://vendeyaonline.com/account",
         status: "pending",
-        external_reference: user_id,
+        external_reference: user_id + "-" + quantityProducts,
       },
     });
     const { init_point, application_id } = subscription;
@@ -57,7 +57,9 @@ export const webhook = async (req: Request, res: Response) => {
       const paymentData = mercadopagoResponse.data;
 
       // Paso 2: Extraer el external_reference como ID del usuario
-      const clientId = paymentData.external_reference;
+      const resultExternalReference = paymentData.external_reference.split("-");
+      const clientId = resultExternalReference[0];
+      const quantityProducts = resultExternalReference[1];
 
       // Paso 3: Validar el usuario en la base de datos
       const user = await User.findByPk(clientId, {
@@ -83,7 +85,7 @@ export const webhook = async (req: Request, res: Response) => {
       const subscriptionData = {
         client: clientId,
         price: Math.round(paymentData.transaction_amount),
-        quantityProducts: 100,
+        quantityProducts: quantityProducts,
         type: getSubscriptionType(paymentData.reason),
         date: formatDate(paymentData.date_created),
       };

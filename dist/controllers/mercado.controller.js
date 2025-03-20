@@ -24,7 +24,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
     });
     const preapproval = new mercadopago_1.PreApproval(client);
     try {
-        const { plan, email, amount, user_id } = req.body;
+        const { plan, email, amount, user_id, quantityProducts } = req.body;
         const subscription = yield preapproval.create({
             body: {
                 payer_email: "test_user_1539335675@testuser.com",
@@ -37,7 +37,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
                 },
                 back_url: "https://vendeyaonline.com/account",
                 status: "pending",
-                external_reference: user_id,
+                external_reference: user_id + "-" + quantityProducts,
             },
         });
         const { init_point, application_id } = subscription;
@@ -63,7 +63,9 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             });
             const paymentData = mercadopagoResponse.data;
             // Paso 2: Extraer el external_reference como ID del usuario
-            const clientId = paymentData.external_reference;
+            const resultExternalReference = paymentData.external_reference.split("-");
+            const clientId = resultExternalReference[0];
+            const quantityProducts = resultExternalReference[1];
             // Paso 3: Validar el usuario en la base de datos
             const user = yield users_1.default.findByPk(clientId, {
                 include: [suscriptions_1.default],
@@ -84,7 +86,7 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             const subscriptionData = {
                 client: clientId,
                 price: Math.round(paymentData.transaction_amount),
-                quantityProducts: 100,
+                quantityProducts: quantityProducts,
                 type: (0, utils_1.getSubscriptionType)(paymentData.reason),
                 date: (0, utils_1.formatDate)(paymentData.date_created),
             };
