@@ -93,6 +93,7 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             const subscription = yield suscriptions_1.default.create(subscriptionData);
             console.log("Suscripción creada:", subscription.dataValues);
         }
+        console.log("LO QUE ME ENVIA MERCADO PAGO:", req.body);
         res.sendStatus(200);
     }
     catch (error) {

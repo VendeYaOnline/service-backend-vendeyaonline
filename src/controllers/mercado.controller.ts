@@ -93,7 +93,7 @@ export const webhook = async (req: Request, res: Response) => {
       const subscription = await Subscription.create(subscriptionData);
       console.log("Suscripción creada:", subscription.dataValues);
     }
-
+    console.log("LO QUE ME ENVIA MERCADO PAGO:", req.body);
     res.sendStatus(200);
   } catch (error) {
     console.error("Error procesando la notificación:", error);
