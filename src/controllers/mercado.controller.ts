@@ -40,7 +40,7 @@ export const createSubscription = async (req: Request, res: Response) => {
 export const webhook = async (req: Request, res: Response) => {
   try {
     const { action, type, data, version } = req.body;
-
+    console.log("LO QUE ME LLEGA", req.body);
     if (type === "subscription_authorized_payment" && action === "created") {
       // Paso 1: Consultar la API de Mercado Pago
       const paymentId = data.id;
