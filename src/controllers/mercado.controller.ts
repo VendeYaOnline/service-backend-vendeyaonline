@@ -91,7 +91,20 @@ export const webhook = async (req: Request, res: Response) => {
 
       await Subscription.create(subscriptionData);
     } else if (type === "payment" && action === "payment.created") {
-      console.log("AQUI GUARDO TEMPORALMETE LA DATA");
+      const mercadopagoResponse = await axios.get(
+        `https://api.mercadopago.com/v1/payments/${data.id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log(
+        "mercadopagoResponse",
+        mercadopagoResponse.data.external_reference
+      );
       res.sendStatus(200);
       return;
     } else {
