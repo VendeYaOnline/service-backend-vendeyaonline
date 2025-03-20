@@ -39,7 +39,7 @@ export const createSubscription = async (req: Request, res: Response) => {
 
 export const webhook = async (req: Request, res: Response) => {
   try {
-    const { action, type, data } = req.body;
+    const { action, type, data, version } = req.body;
 
     if (type === "subscription_authorized_payment" && action === "created") {
       // Paso 1: Consultar la API de Mercado Pago
@@ -90,8 +90,18 @@ export const webhook = async (req: Request, res: Response) => {
         date: formatDate(paymentData.date_created),
       };
 
-      const subscription = await Subscription.create(subscriptionData);
-      console.log("Suscripción creada:", subscription.dataValues);
+      await Subscription.create(subscriptionData);
+    } else if (
+      type === "subscription_preapprova" &&
+      version === 2 &&
+      action === "updated"
+    ) {
+      console.log("AQUI GUARDO TEMPORALMETE la DATA");
+      res.sendStatus(200);
+      return;
+    } else {
+      res.sendStatus(200);
+      return;
     }
     console.log("LO QUE ME ENVIA MERCADO PAGO:", req.body);
     res.sendStatus(200);

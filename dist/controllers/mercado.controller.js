@@ -51,7 +51,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
 exports.createSubscription = createSubscription;
 const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { action, type, data } = req.body;
+        const { action, type, data, version } = req.body;
         if (type === "subscription_authorized_payment" && action === "created") {
             // Paso 1: Consultar la API de Mercado Pago
             const paymentId = data.id;
@@ -90,8 +90,18 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 type: (0, utils_1.getSubscriptionType)(paymentData.reason),
                 date: (0, utils_1.formatDate)(paymentData.date_created),
             };
-            const subscription = yield suscriptions_1.default.create(subscriptionData);
-            console.log("Suscripción creada:", subscription.dataValues);
+            yield suscriptions_1.default.create(subscriptionData);
+        }
+        else if (type === "subscription_preapprova" &&
+            version === 2 &&
+            action === "updated") {
+            console.log("AQUI GUARDO TEMPORALMETE la DATA");
+            res.sendStatus(200);
+            return;
+        }
+        else {
+            res.sendStatus(200);
+            return;
         }
         console.log("LO QUE ME ENVIA MERCADO PAGO:", req.body);
         res.sendStatus(200);
