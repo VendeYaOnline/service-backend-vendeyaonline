@@ -95,16 +95,13 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         else if (type === "subscription_preapprova" &&
             version === 2 &&
             action === "updated") {
-            console.log("AQUI GUARDO TEMPORALMETE la DATA");
+            console.log("AQUI GUARDO TEMPORALMETE LA DATA");
             res.sendStatus(200);
             return;
         }
         else {
             res.sendStatus(200);
-            return;
         }
-        console.log("LO QUE ME ENVIA MERCADO PAGO:", req.body);
-        res.sendStatus(200);
     }
     catch (error) {
         console.error("Error procesando la notificación:", error);

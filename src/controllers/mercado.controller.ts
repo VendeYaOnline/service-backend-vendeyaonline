@@ -96,15 +96,12 @@ export const webhook = async (req: Request, res: Response) => {
       version === 2 &&
       action === "updated"
     ) {
-      console.log("AQUI GUARDO TEMPORALMETE la DATA");
+      console.log("AQUI GUARDO TEMPORALMETE LA DATA");
       res.sendStatus(200);
       return;
     } else {
       res.sendStatus(200);
-      return;
     }
-    console.log("LO QUE ME ENVIA MERCADO PAGO:", req.body);
-    res.sendStatus(200);
   } catch (error) {
     console.error("Error procesando la notificación:", error);
     res.sendStatus(500);
