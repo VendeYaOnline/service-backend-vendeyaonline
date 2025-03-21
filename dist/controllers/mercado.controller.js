@@ -52,8 +52,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
 exports.createSubscription = createSubscription;
 const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { action, type, data } = req.body;
-        console.log("RESPUESTA DE MERCADO PAGO", req.body);
+        const { action, type, data, version } = req.body;
         if (type === "subscription_authorized_payment" && action === "created") {
             // Paso 1: Consultar la API de Mercado Pago
             const paymentId = data.id;
@@ -108,6 +107,21 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             });
             const client = mercadopagoResponse.data.external_reference.split("-")[0];
             yield preapprovald_subscriptions_1.default.create({ client: client });
+            res.sendStatus(200);
+            return;
+        }
+        else if (type === "subscription_preapproval" &&
+            action === "updated" &&
+            version === 2) {
+            console.log("ESTE ES EL ID PARA PAUSAR", data.id);
+            yield axios_1.default.put(`https://api.mercadopago.com/preapproval/${data.id}`, {
+                status: "paused",
+            }, {
+                headers: {
+                    Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+                    "Content-Type": "application/json",
+                },
+            });
             res.sendStatus(200);
             return;
         }
