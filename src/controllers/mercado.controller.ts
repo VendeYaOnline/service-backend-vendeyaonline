@@ -91,6 +91,11 @@ export const webhook = async (req: Request, res: Response) => {
       };
 
       await Subscription.create(subscriptionData);
+      await Subscription.destroy({
+        where: { client: clientId },
+      });
+      res.sendStatus(200);
+      return;
     } else if (type === "payment" && action === "payment.created") {
       const mercadopagoResponse = await axios.get(
         `https://api.mercadopago.com/v1/payments/${data.id}`,
@@ -103,7 +108,7 @@ export const webhook = async (req: Request, res: Response) => {
       );
 
       const client = mercadopagoResponse.data.external_reference.split("-")[0];
-      await PreapprovaldSubscription.create({ client: +client });
+      await PreapprovaldSubscription.create({ client: client });
       res.sendStatus(200);
       return;
     } else {

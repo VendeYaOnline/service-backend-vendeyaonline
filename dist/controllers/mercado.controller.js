@@ -92,6 +92,11 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 date: (0, utils_1.formatDate)(paymentData.date_created),
             };
             yield suscriptions_1.default.create(subscriptionData);
+            yield suscriptions_1.default.destroy({
+                where: { client: clientId },
+            });
+            res.sendStatus(200);
+            return;
         }
         else if (type === "payment" && action === "payment.created") {
             const mercadopagoResponse = yield axios_1.default.get(`https://api.mercadopago.com/v1/payments/${data.id}`, {
@@ -101,7 +106,7 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 },
             });
             const client = mercadopagoResponse.data.external_reference.split("-")[0];
-            yield preapprovald_subscriptions_1.default.create({ client: +client });
+            yield preapprovald_subscriptions_1.default.create({ client: client });
             res.sendStatus(200);
             return;
         }

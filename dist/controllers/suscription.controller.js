@@ -17,6 +17,7 @@ const suscriptionSchema_1 = require("../schemas/suscriptionSchema");
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
 const users_1 = __importDefault(require("../models/users"));
 const canceled_subscriptions_1 = __importDefault(require("../models/canceled_subscriptions"));
+const preapprovald_subscriptions_1 = __importDefault(require("../models/preapprovald_subscriptions"));
 const getAllSuscription = (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const subscription = yield suscriptions_1.default.findAll();
@@ -249,7 +250,7 @@ const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function*
         try {
             const user = yield users_1.default.findOne({
                 where: { id },
-                include: [suscriptions_1.default, canceled_subscriptions_1.default],
+                include: [suscriptions_1.default, canceled_subscriptions_1.default, preapprovald_subscriptions_1.default],
             });
             const { dataValues } = user;
             if (dataValues.Subscriptions.length &&
@@ -267,7 +268,10 @@ const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function*
                 return;
             }
             else {
-                res.status(200).json({ subscription: undefined });
+                res.status(200).json({
+                    subscription: undefined,
+                    preapproval: dataValues.PreapprovaldSubscription ? true : false,
+                });
                 return;
             }
         }

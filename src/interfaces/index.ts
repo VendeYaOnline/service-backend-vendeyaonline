@@ -5,6 +5,7 @@ export interface UserI {
   password: string;
   Subscriptions: [{ dataValues: SuscriptionI }];
   CanceledSubscriptions: [{ dataValues: SuscriptionI }];
+  PreapprovaldSubscription: { dataValues: { id: number; client: number } };
   updatedat?: Date;
 }
 

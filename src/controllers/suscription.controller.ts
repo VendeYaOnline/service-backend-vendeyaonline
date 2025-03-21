@@ -7,6 +7,7 @@ import Subscription from "../models/suscriptions";
 import { SuscriptionI, UserI } from "../interfaces";
 import User from "../models/users";
 import CanceledSubscription from "../models/canceled_subscriptions";
+import PreapprovaldSubscription from "../models/preapprovald_subscriptions";
 
 export const getAllSuscription = async (_req: Request, res: Response) => {
   try {
@@ -229,7 +230,7 @@ export const getSuscription = async (req: Request, res: Response) => {
     try {
       const user = await User.findOne({
         where: { id },
-        include: [Subscription, CanceledSubscription],
+        include: [Subscription, CanceledSubscription, PreapprovaldSubscription],
       });
       const { dataValues } = user as { dataValues: UserI };
       if (
@@ -255,7 +256,10 @@ export const getSuscription = async (req: Request, res: Response) => {
         });
         return;
       } else {
-        res.status(200).json({ subscription: undefined });
+        res.status(200).json({
+          subscription: undefined,
+          preapproval: dataValues.PreapprovaldSubscription ? true : false,
+        });
         return;
       }
     } catch (error: any) {
