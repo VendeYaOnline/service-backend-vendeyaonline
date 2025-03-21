@@ -5,6 +5,7 @@ import User from "../models/users";
 import Subscription from "../models/suscriptions";
 import { UserI } from "../interfaces";
 import { formatDate, getSubscriptionType } from "../utils";
+import PreapprovaldSubscription from "../models/preapprovald_subscriptions";
 
 export const createSubscription = async (req: Request, res: Response) => {
   const client = new MercadoPagoConfig({
@@ -101,10 +102,8 @@ export const webhook = async (req: Request, res: Response) => {
         }
       );
 
-      console.log(
-        "mercadopagoResponse",
-        mercadopagoResponse.data.external_reference
-      );
+      const client = mercadopagoResponse.data.external_reference.split("-")[0];
+      await PreapprovaldSubscription.create({ client: +client });
       res.sendStatus(200);
       return;
     } else {

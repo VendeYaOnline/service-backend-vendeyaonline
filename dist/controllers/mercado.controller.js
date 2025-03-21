@@ -18,6 +18,7 @@ const axios_1 = __importDefault(require("axios"));
 const users_1 = __importDefault(require("../models/users"));
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
 const utils_1 = require("../utils");
+const preapprovald_subscriptions_1 = __importDefault(require("../models/preapprovald_subscriptions"));
 const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const client = new mercadopago_1.MercadoPagoConfig({
         accessToken: process.env.ACCESS_TOKEN,
@@ -99,7 +100,8 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                     "Content-Type": "application/json",
                 },
             });
-            console.log("mercadopagoResponse", mercadopagoResponse.data.external_reference);
+            const client = mercadopagoResponse.data.external_reference.split("-")[0];
+            yield preapprovald_subscriptions_1.default.create({ client: +client });
             res.sendStatus(200);
             return;
         }
