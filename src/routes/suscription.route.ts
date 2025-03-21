@@ -11,6 +11,7 @@ import {
   getAllCancellations,
   cancellationsSuscription,
   createActiveSubscriptions,
+  deletePreapprovald,
 } from "../controllers/suscription.controller";
 import { validateToken } from "../middlewares";
 
@@ -43,5 +44,6 @@ route.delete("/delete-canceled_suscription/:id", [
   validateToken,
   deleteCanceledSuscription,
 ]);
+route.delete("/delete-preapprovald/:id", [deletePreapprovald]);
 
 export default route;

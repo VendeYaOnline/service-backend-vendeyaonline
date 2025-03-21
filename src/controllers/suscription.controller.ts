@@ -333,3 +333,15 @@ export const deleteCanceledSuscription = async (
     return;
   }
 };
+
+export const deletePreapprovald = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!id) {
+    res.status(400).json({ message: "ID required" });
+    return;
+  } else {
+    await PreapprovaldSubscription.destroy({
+      where: { client: id },
+    });
+  }
+};

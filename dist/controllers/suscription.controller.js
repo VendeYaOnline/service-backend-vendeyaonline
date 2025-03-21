@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createActiveSubscriptions = exports.createCanceledSubscriptions = exports.cancellationsSuscription = exports.updatedSuscription = exports.createSuscription = exports.getAllCancellations = exports.getAllSuscription = void 0;
+exports.deletePreapprovald = exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createActiveSubscriptions = exports.createCanceledSubscriptions = exports.cancellationsSuscription = exports.updatedSuscription = exports.createSuscription = exports.getAllCancellations = exports.getAllSuscription = void 0;
 const suscriptionSchema_1 = require("../schemas/suscriptionSchema");
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
 const users_1 = __importDefault(require("../models/users"));
@@ -348,3 +348,16 @@ const deleteCanceledSuscription = (req, res) => __awaiter(void 0, void 0, void 0
     }
 });
 exports.deleteCanceledSuscription = deleteCanceledSuscription;
+const deletePreapprovald = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    if (!id) {
+        res.status(400).json({ message: "ID required" });
+        return;
+    }
+    else {
+        yield preapprovald_subscriptions_1.default.destroy({
+            where: { client: id },
+        });
+    }
+});
+exports.deletePreapprovald = deletePreapprovald;

@@ -30,4 +30,5 @@ route.delete("/delete-canceled_suscription/:id", [
     middlewares_1.validateToken,
     suscription_controller_1.deleteCanceledSuscription,
 ]);
+route.delete("/delete-preapprovald/:id", [suscription_controller_1.deletePreapprovald]);
 exports.default = route;
