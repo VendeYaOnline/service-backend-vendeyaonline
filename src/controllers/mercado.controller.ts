@@ -91,7 +91,7 @@ export const webhook = async (req: Request, res: Response) => {
       };
 
       await Subscription.create(subscriptionData);
-      await Subscription.destroy({
+      await PreapprovaldSubscription.destroy({
         where: { client: clientId },
       });
       res.sendStatus(200);

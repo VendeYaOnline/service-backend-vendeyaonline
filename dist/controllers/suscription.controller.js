@@ -32,7 +32,7 @@ const getAllSuscription = (_req, res) => __awaiter(void 0, void 0, void 0, funct
     }
     catch (error) {
         res.status(500).json({
-            error: `Error subscription - ${error.errors[0].message}`,
+            message: "Error subscription",
         });
         return;
     }
@@ -52,7 +52,7 @@ const getAllCancellations = (_req, res) => __awaiter(void 0, void 0, void 0, fun
     }
     catch (error) {
         res.status(500).json({
-            error: `Error subscription - ${error.errors[0].message}`,
+            message: "Error subscription",
         });
         return;
     }
@@ -96,7 +96,7 @@ const createSuscription = (req, res) => __awaiter(void 0, void 0, void 0, functi
         }
         catch (error) {
             res.status(500).json({
-                error: `Error creating user - ${error.errors[0].message}`,
+                message: "Error creating user",
             });
         }
     }
@@ -187,7 +187,7 @@ const createCanceledSubscriptions = (req, res) => __awaiter(void 0, void 0, void
         }
         catch (error) {
             res.status(500).json({
-                error: `Error creating user - ${error.errors[0].message}`,
+                message: "Error creating user",
             });
         }
     }
@@ -234,7 +234,7 @@ const createActiveSubscriptions = (req, res) => __awaiter(void 0, void 0, void 0
         }
         catch (error) {
             res.status(500).json({
-                error: `Error creating user - ${error.errors[0].message}`,
+                message: "Error creating user",
             });
         }
     }
@@ -277,7 +277,7 @@ const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function*
         }
         catch (error) {
             res.status(500).json({
-                error: `Error subscription - ${error.errors[0].message}`,
+                message: "Error subscription",
             });
             return;
         }
@@ -308,7 +308,7 @@ const getCanceledSuscription = (req, res) => __awaiter(void 0, void 0, void 0, f
         }
         catch (error) {
             res.status(500).json({
-                error: `Error cancellation - ${error.errors[0].message}`,
+                error: "Error cancellation",
             });
             return;
         }

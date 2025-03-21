@@ -21,7 +21,7 @@ export const getAllSuscription = async (_req: Request, res: Response) => {
     }
   } catch (error: any) {
     res.status(500).json({
-      error: `Error subscription - ${error.errors[0].message}`,
+      message: "Error subscription",
     });
     return;
   }
@@ -39,7 +39,7 @@ export const getAllCancellations = async (_req: Request, res: Response) => {
     }
   } catch (error: any) {
     res.status(500).json({
-      error: `Error subscription - ${error.errors[0].message}`,
+      message: "Error subscription",
     });
     return;
   }
@@ -79,7 +79,7 @@ export const createSuscription = async (req: Request, res: Response) => {
       }
     } catch (error: any) {
       res.status(500).json({
-        error: `Error creating user - ${error.errors[0].message}`,
+        message: "Error creating user",
       });
     }
   }
@@ -167,7 +167,7 @@ export const createCanceledSubscriptions = async (
       }
     } catch (error: any) {
       res.status(500).json({
-        error: `Error creating user - ${error.errors[0].message}`,
+        message: "Error creating user",
       });
     }
   }
@@ -215,7 +215,7 @@ export const createActiveSubscriptions = async (
       }
     } catch (error: any) {
       res.status(500).json({
-        error: `Error creating user - ${error.errors[0].message}`,
+        message: "Error creating user",
       });
     }
   }
@@ -264,7 +264,7 @@ export const getSuscription = async (req: Request, res: Response) => {
       }
     } catch (error: any) {
       res.status(500).json({
-        error: `Error subscription - ${error.errors[0].message}`,
+        message: "Error subscription",
       });
       return;
     }
@@ -292,7 +292,7 @@ export const getCanceledSuscription = async (req: Request, res: Response) => {
       }
     } catch (error: any) {
       res.status(500).json({
-        error: `Error cancellation - ${error.errors[0].message}`,
+        error: "Error cancellation",
       });
       return;
     }
