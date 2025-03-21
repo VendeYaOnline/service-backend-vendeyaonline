@@ -99,6 +99,7 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             return;
         }
         else if (type === "payment" && action === "payment.created") {
+            console.log("data.id", data.id);
             const mercadopagoResponse = yield axios_1.default.get(`https://api.mercadopago.com/v1/payments/${data.id}`, {
                 headers: {
                     Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,

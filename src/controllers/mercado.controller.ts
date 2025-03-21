@@ -97,6 +97,7 @@ export const webhook = async (req: Request, res: Response) => {
       res.sendStatus(200);
       return;
     } else if (type === "payment" && action === "payment.created") {
+      console.log("data.id", data.id);
       const mercadopagoResponse = await axios.get(
         `https://api.mercadopago.com/v1/payments/${data.id}`,
         {
