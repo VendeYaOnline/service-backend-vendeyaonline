@@ -116,7 +116,6 @@ export const webhook = async (req: Request, res: Response) => {
       action === "updated" &&
       version === 2
     ) {
-      console.log("ESTE ES EL ID PARA PAUSAR", data.id);
       await axios.put(
         `https://api.mercadopago.com/preapproval/${data.id}`,
         {

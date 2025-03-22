@@ -20,6 +20,11 @@ const Subscription = connect_1.sequelize.define("Subscription", {
         type: sequelize_1.DataTypes.INTEGER,
         allowNull: false,
     },
+    numberProductsCreated: {
+        type: sequelize_1.DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+    },
     type: {
         type: sequelize_1.DataTypes.ENUM("Emprendedor", "Crecimiento", "Corporativo"),
         allowNull: false,
@@ -40,8 +45,8 @@ const Subscription = connect_1.sequelize.define("Subscription", {
     },
 }, {
     timestamps: true,
-    createdAt: "createdat", // Renombrar la columna
-    updatedAt: "updatedat", // Renombrar la columna
+    createdAt: "createdat",
+    updatedAt: "updatedat",
     tableName: "subscriptions",
 });
 Subscription.belongsTo(users_1.default, { foreignKey: "client" });

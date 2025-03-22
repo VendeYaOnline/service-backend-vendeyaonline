@@ -18,6 +18,11 @@ const Subscription = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    numberProductsCreated: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
     type: {
       type: DataTypes.ENUM("Emprendedor", "Crecimiento", "Corporativo"),
       allowNull: false,
@@ -39,8 +44,8 @@ const Subscription = sequelize.define(
   },
   {
     timestamps: true,
-    createdAt: "createdat", // Renombrar la columna
-    updatedAt: "updatedat", // Renombrar la columna
+    createdAt: "createdat",
+    updatedAt: "updatedat",
     tableName: "subscriptions",
   }
 );

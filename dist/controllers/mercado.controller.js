@@ -113,7 +113,6 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         else if (type === "subscription_preapproval" &&
             action === "updated" &&
             version === 2) {
-            console.log("ESTE ES EL ID PARA PAUSAR", data.id);
             yield axios_1.default.put(`https://api.mercadopago.com/preapproval/${data.id}`, {
                 status: "paused",
             }, {
