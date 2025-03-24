@@ -31,6 +31,15 @@ const Subscription = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    subscriptionId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: "pause",
+    },
     client: {
       type: DataTypes.INTEGER,
       allowNull: false,

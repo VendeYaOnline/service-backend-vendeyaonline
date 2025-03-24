@@ -17,7 +17,7 @@ export const createSubscription = async (req: Request, res: Response) => {
 
     const subscription = await preapproval.create({
       body: {
-        payer_email: "test_user_1539335675@testuser.com",
+        payer_email: "mikeparrado0@gmail.com",
         reason: "Plan " + plan,
         auto_recurring: {
           frequency: 1,
@@ -30,8 +30,8 @@ export const createSubscription = async (req: Request, res: Response) => {
         external_reference: user_id + "-" + quantityProducts,
       },
     });
-    const { init_point, application_id } = subscription;
-    res.status(201).json({ subscription_url: init_point, application_id });
+    const { init_point } = subscription;
+    res.status(201).json({ subscription_url: init_point });
     return;
   } catch (error: any) {
     return res.status(error.status).json({ message: error.message });
@@ -42,7 +42,7 @@ export const webhook = async (req: Request, res: Response) => {
   try {
     const { action, type, data, version } = req.body;
     if (type === "subscription_authorized_payment" && action === "created") {
-      console.log("ID DE LA SUSCRIPCION YA CREADA Y AUTORIZADA:", data.id);
+      
       // Paso 1: Consultar la API de Mercado Pago
       const paymentId = data.id;
       const mercadopagoResponse = await axios.get(
@@ -56,6 +56,7 @@ export const webhook = async (req: Request, res: Response) => {
       );
 
       const paymentData = mercadopagoResponse.data;
+      const subscriptionId = paymentData.preapproval_id;
 
       // Paso 2: Extraer el external_reference como ID del usuario
       const resultExternalReference = paymentData.external_reference.split("-");
@@ -89,6 +90,7 @@ export const webhook = async (req: Request, res: Response) => {
         quantityProducts: quantityProducts,
         type: getSubscriptionType(paymentData.reason),
         date: formatDate(paymentData.date_created),
+        subscriptionId: subscriptionId,
       };
 
       await Subscription.create(subscriptionData);
@@ -98,7 +100,6 @@ export const webhook = async (req: Request, res: Response) => {
       res.sendStatus(200);
       return;
     } else if (type === "payment" && action === "payment.created") {
-      console.log("ID DE LA SUSCRIPCION ANTES DE AUTORIZARLA:", data.id);
       const mercadopagoResponse = await axios.get(
         `https://api.mercadopago.com/v1/payments/${data.id}`,
         {

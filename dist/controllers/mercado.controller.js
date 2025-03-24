@@ -28,7 +28,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
         const { plan, email, amount, user_id, quantityProducts } = req.body;
         const subscription = yield preapproval.create({
             body: {
-                payer_email: "test_user_1539335675@testuser.com",
+                payer_email: "mikeparrado0@gmail.com",
                 reason: "Plan " + plan,
                 auto_recurring: {
                     frequency: 1,
@@ -41,8 +41,8 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
                 external_reference: user_id + "-" + quantityProducts,
             },
         });
-        const { init_point, application_id } = subscription;
-        res.status(201).json({ subscription_url: init_point, application_id });
+        const { init_point } = subscription;
+        res.status(201).json({ subscription_url: init_point });
         return;
     }
     catch (error) {
@@ -54,7 +54,6 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { action, type, data, version } = req.body;
         if (type === "subscription_authorized_payment" && action === "created") {
-            console.log("ID DE LA SUSCRIPCION YA CREADA Y AUTORIZADA:", data.id);
             // Paso 1: Consultar la API de Mercado Pago
             const paymentId = data.id;
             const mercadopagoResponse = yield axios_1.default.get(`https://api.mercadopago.com/authorized_payments/${paymentId}`, {
@@ -64,6 +63,7 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 },
             });
             const paymentData = mercadopagoResponse.data;
+            const subscriptionId = paymentData.preapproval_id;
             // Paso 2: Extraer el external_reference como ID del usuario
             const resultExternalReference = paymentData.external_reference.split("-");
             const clientId = resultExternalReference[0];
@@ -91,6 +91,7 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 quantityProducts: quantityProducts,
                 type: (0, utils_1.getSubscriptionType)(paymentData.reason),
                 date: (0, utils_1.formatDate)(paymentData.date_created),
+                subscriptionId: subscriptionId,
             };
             yield suscriptions_1.default.create(subscriptionData);
             yield preapprovald_subscriptions_1.default.destroy({
@@ -100,7 +101,6 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             return;
         }
         else if (type === "payment" && action === "payment.created") {
-            console.log("ID DE LA SUSCRIPCION ANTES DE AUTORIZARLA:", data.id);
             const mercadopagoResponse = yield axios_1.default.get(`https://api.mercadopago.com/v1/payments/${data.id}`, {
                 headers: {
                     Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
