@@ -42,6 +42,7 @@ export const webhook = async (req: Request, res: Response) => {
   try {
     const { action, type, data, version } = req.body;
     if (type === "subscription_authorized_payment" && action === "created") {
+      console.log("ID DE LA SUSCRIPCION YA CREADA Y AUTORIZADA:", data.id);
       // Paso 1: Consultar la API de Mercado Pago
       const paymentId = data.id;
       const mercadopagoResponse = await axios.get(
@@ -97,6 +98,7 @@ export const webhook = async (req: Request, res: Response) => {
       res.sendStatus(200);
       return;
     } else if (type === "payment" && action === "payment.created") {
+      console.log("ID DE LA SUSCRIPCION ANTES DE AUTORIZARLA:", data.id);
       const mercadopagoResponse = await axios.get(
         `https://api.mercadopago.com/v1/payments/${data.id}`,
         {
