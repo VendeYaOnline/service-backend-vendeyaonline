@@ -26,6 +26,10 @@ const CanceledSubscription = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    subscriptionId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     date_limit: {
       type: DataTypes.STRING,
       allowNull: false,

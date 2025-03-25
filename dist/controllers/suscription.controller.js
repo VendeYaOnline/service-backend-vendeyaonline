@@ -217,7 +217,7 @@ const createActiveSubscriptions = (req, res) => __awaiter(void 0, void 0, void 0
                     yield canceled_subscriptions_1.default.destroy({
                         where: { id: dataValues.CanceledSubscriptions[0].dataValues.id },
                     });
-                    const subscription = yield suscriptions_1.default.create(data);
+                    const subscription = yield suscriptions_1.default.create(Object.assign(Object.assign({}, data), { status: "active" }));
                     const { dataValues: dataSubscription } = subscription;
                     res.status(201).json({
                         message: `Subscription created successfully ${dataSubscription.type}`,
@@ -256,7 +256,7 @@ const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function*
             if (dataValues.Subscriptions.length &&
                 !dataValues.CanceledSubscriptions.length) {
                 res.status(200).json({
-                    subscription: Object.assign(Object.assign({}, dataValues.Subscriptions[0].dataValues), { status: "Activo" }),
+                    subscription: Object.assign({}, dataValues.Subscriptions[0].dataValues),
                 });
                 return;
             }

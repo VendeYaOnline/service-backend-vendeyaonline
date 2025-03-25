@@ -198,7 +198,10 @@ export const createActiveSubscriptions = async (
           await CanceledSubscription.destroy({
             where: { id: dataValues.CanceledSubscriptions[0].dataValues.id },
           });
-          const subscription = await Subscription.create(data);
+          const subscription = await Subscription.create({
+            ...data,
+            status: "active",
+          });
           const { dataValues: dataSubscription } = subscription as {
             dataValues: SuscriptionI;
           };
@@ -240,7 +243,6 @@ export const getSuscription = async (req: Request, res: Response) => {
         res.status(200).json({
           subscription: {
             ...dataValues.Subscriptions[0].dataValues,
-            status: "Activo",
           },
         });
         return;
