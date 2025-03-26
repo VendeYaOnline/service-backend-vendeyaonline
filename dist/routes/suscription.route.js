@@ -20,6 +20,14 @@ route.post("/create-active_suscription", [
     middlewares_1.validateToken,
     suscription_controller_1.createActiveSubscriptions,
 ]);
+route.post("/create-canceled_suscription_pause", [
+    middlewares_1.validateToken,
+    suscription_controller_1.createCanceledSubscriptionsPause,
+]);
+route.post("/create-active_suscription_pause", [
+    middlewares_1.validateToken,
+    suscription_controller_1.createActiveSubscriptionsPause,
+]);
 route.put("/updated-suscription/:id", [middlewares_1.validateToken, suscription_controller_1.updatedSuscription]);
 route.put("/updated-cancellations/:id", [
     middlewares_1.validateToken,

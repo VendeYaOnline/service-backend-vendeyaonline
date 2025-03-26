@@ -8,6 +8,7 @@ export const suscriptionSchema = Joi.object({
     .required(),
   date: Joi.string().required(),
   date_limit: Joi.string().optional(),
+  subscriptionId: Joi.string(),
   client: Joi.number().required(),
 });
 

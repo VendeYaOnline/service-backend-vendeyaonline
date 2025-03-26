@@ -13,6 +13,7 @@ exports.suscriptionSchema = joi_1.default.object({
         .required(),
     date: joi_1.default.string().required(),
     date_limit: joi_1.default.string().optional(),
+    subscriptionId: joi_1.default.string(),
     client: joi_1.default.number().required(),
 });
 exports.suscriptionSchemaUpdated = joi_1.default.object({

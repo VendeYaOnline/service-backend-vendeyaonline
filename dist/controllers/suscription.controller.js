@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deletePreapprovald = exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createActiveSubscriptions = exports.createCanceledSubscriptions = exports.cancellationsSuscription = exports.updatedSuscription = exports.createSuscription = exports.getAllCancellations = exports.getAllSuscription = void 0;
+exports.deletePreapprovald = exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createActiveSubscriptionsPause = exports.createCanceledSubscriptionsPause = exports.createActiveSubscriptions = exports.createCanceledSubscriptions = exports.cancellationsSuscription = exports.updatedSuscription = exports.createSuscription = exports.getAllCancellations = exports.getAllSuscription = void 0;
 const suscriptionSchema_1 = require("../schemas/suscriptionSchema");
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
 const users_1 = __importDefault(require("../models/users"));
@@ -151,6 +151,7 @@ exports.cancellationsSuscription = cancellationsSuscription;
 const createCanceledSubscriptions = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { error } = suscriptionSchema_1.suscriptionSchema.validate(req.body);
     if (error) {
+        console.log("sass", error);
         res.status(400).json({ error: error.details[0].message });
         return;
     }
@@ -186,6 +187,7 @@ const createCanceledSubscriptions = (req, res) => __awaiter(void 0, void 0, void
             }
         }
         catch (error) {
+            console.log("Error al canelar", error);
             res.status(500).json({
                 message: "Error creating user",
             });
@@ -233,6 +235,7 @@ const createActiveSubscriptions = (req, res) => __awaiter(void 0, void 0, void 0
             }
         }
         catch (error) {
+            console.log("Error al activar", error);
             res.status(500).json({
                 message: "Error creating user",
             });
@@ -240,6 +243,80 @@ const createActiveSubscriptions = (req, res) => __awaiter(void 0, void 0, void 0
     }
 });
 exports.createActiveSubscriptions = createActiveSubscriptions;
+const createCanceledSubscriptionsPause = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const data = req.body;
+        const user = yield users_1.default.findByPk(data.client, {
+            include: suscriptions_1.default,
+        });
+        if (!user) {
+            res.status(404).json({
+                message: "The client does not exist",
+            });
+            return;
+        }
+        else {
+            const { dataValues } = user;
+            if (dataValues.Subscriptions.length) {
+                yield suscriptions_1.default.update({ status: "pause-canceled" }, { where: { id: dataValues.Subscriptions[0].dataValues.id || 0 } });
+                res.status(201).json({
+                    message: "Subscription updated successfully",
+                });
+                return;
+            }
+            else {
+                res.status(409).json({
+                    message: "The user does not have a subscription",
+                });
+                return;
+            }
+        }
+    }
+    catch (error) {
+        console.log("Error al activar", error);
+        res.status(500).json({
+            message: "Error creating user",
+        });
+    }
+});
+exports.createCanceledSubscriptionsPause = createCanceledSubscriptionsPause;
+const createActiveSubscriptionsPause = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const data = req.body;
+        const user = yield users_1.default.findByPk(data.client, {
+            include: suscriptions_1.default,
+        });
+        if (!user) {
+            res.status(404).json({
+                message: "The client does not exist",
+            });
+            return;
+        }
+        else {
+            const { dataValues } = user;
+            if (dataValues.Subscriptions.length) {
+                yield suscriptions_1.default.update({ status: "pause" }, { where: { id: dataValues.Subscriptions[0].dataValues.id || 0 } });
+                res.status(201).json({
+                    message: "Subscription updated successfully",
+                });
+                return;
+            }
+            else {
+                res.status(409).json({
+                    message: "The user does not have a subscription",
+                });
+                return;
+            }
+        }
+    }
+    catch (error) {
+        console.log("Error al activar", error);
+        res.status(500).json({
+            message: "Error creating user",
+        });
+    }
+});
+exports.createActiveSubscriptionsPause = createActiveSubscriptionsPause;
 const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     if (!id || id === "undefined") {

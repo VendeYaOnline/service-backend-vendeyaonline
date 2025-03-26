@@ -133,6 +133,7 @@ export const createCanceledSubscriptions = async (
 ) => {
   const { error } = suscriptionSchema.validate(req.body);
   if (error) {
+    console.log("sass", error);
     res.status(400).json({ error: error.details[0].message });
     return;
   } else {
@@ -166,6 +167,7 @@ export const createCanceledSubscriptions = async (
         }
       }
     } catch (error: any) {
+      console.log("Error al canelar", error);
       res.status(500).json({
         message: "Error creating user",
       });
@@ -217,10 +219,91 @@ export const createActiveSubscriptions = async (
         }
       }
     } catch (error: any) {
+      console.log("Error al activar", error);
       res.status(500).json({
         message: "Error creating user",
       });
     }
+  }
+};
+
+export const createCanceledSubscriptionsPause = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const data = req.body;
+    const user = await User.findByPk(data.client, {
+      include: Subscription,
+    });
+    if (!user) {
+      res.status(404).json({
+        message: "The client does not exist",
+      });
+      return;
+    } else {
+      const { dataValues } = user as { dataValues: UserI };
+      if (dataValues.Subscriptions.length) {
+        await Subscription.update(
+          { status: "pause-canceled" },
+          { where: { id: dataValues.Subscriptions[0].dataValues.id || 0 } }
+        );
+        res.status(201).json({
+          message: "Subscription updated successfully",
+        });
+        return;
+      } else {
+        res.status(409).json({
+          message: "The user does not have a subscription",
+        });
+        return;
+      }
+    }
+  } catch (error: any) {
+    console.log("Error al activar", error);
+    res.status(500).json({
+      message: "Error creating user",
+    });
+  }
+};
+
+export const createActiveSubscriptionsPause = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const data = req.body;
+    const user = await User.findByPk(data.client, {
+      include: Subscription,
+    });
+    if (!user) {
+      res.status(404).json({
+        message: "The client does not exist",
+      });
+      return;
+    } else {
+      const { dataValues } = user as { dataValues: UserI };
+      if (dataValues.Subscriptions.length) {
+        await Subscription.update(
+          { status: "pause" },
+          { where: { id: dataValues.Subscriptions[0].dataValues.id || 0 } }
+        );
+        res.status(201).json({
+          message: "Subscription updated successfully",
+        });
+        return;
+      } else {
+        res.status(409).json({
+          message: "The user does not have a subscription",
+        });
+        return;
+      }
+    }
+  } catch (error: any) {
+    console.log("Error al activar", error);
+    res.status(500).json({
+      message: "Error creating user",
+    });
   }
 };
 
