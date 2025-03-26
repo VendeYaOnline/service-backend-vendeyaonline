@@ -20,6 +20,7 @@ exports.suscriptionSchema = joi_1.default.object({
 exports.suscriptionSchemaUpdated = joi_1.default.object({
     price: joi_1.default.number().optional(),
     quantityProducts: joi_1.default.number().optional(),
+    status: joi_1.default.string().optional(),
     type: joi_1.default.string()
         .valid("Emprendedor", "Crecimiento", "Corporativo")
         .optional(),

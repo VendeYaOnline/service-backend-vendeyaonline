@@ -26,6 +26,7 @@ exports.validateToken = validateToken;
 exports.corsOptions = {
     origin: [
         "http://localhost:3000",
+        "http://localhost:3001",
         "https://vendeyaonline.com",
         "https://dashboard-vendeyaonline.vercel.app",
         "https://www.vendeyaonline.com",

@@ -16,6 +16,7 @@ export const suscriptionSchema = Joi.object({
 export const suscriptionSchemaUpdated = Joi.object({
   price: Joi.number().optional(),
   quantityProducts: Joi.number().optional(),
+  status: Joi.string().optional(),
   type: Joi.string()
     .valid("Emprendedor", "Crecimiento", "Corporativo")
     .optional(),
