@@ -9,6 +9,7 @@ export const suscriptionSchema = Joi.object({
   date: Joi.string().required(),
   date_limit: Joi.string().optional(),
   subscriptionId: Joi.string(),
+  status: Joi.string().optional(),
   client: Joi.number().required(),
 });
 
