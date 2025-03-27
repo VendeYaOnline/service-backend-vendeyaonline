@@ -8,6 +8,7 @@ import { SuscriptionI, UserI } from "../interfaces";
 import User from "../models/users";
 import CanceledSubscription from "../models/canceled_subscriptions";
 import PreapprovaldSubscription from "../models/preapprovald_subscriptions";
+import { planSchemaUpdated } from "../schemas/planSchema";
 
 export const getAllSuscription = async (_req: Request, res: Response) => {
   try {
@@ -99,6 +100,43 @@ export const updatedSuscription = async (req: Request, res: Response) => {
       });
       res.status(200).json({ message: "Updated Subscription" });
       return;
+    } catch (error) {
+      res.status(500).json({ error: "Error updating" });
+      return;
+    }
+  }
+};
+
+export const updatedPlan = async (req: Request, res: Response) => {
+  const { error } = planSchemaUpdated.validate(req.body);
+  if (error) {
+    res.status(400).json({ error: error.details[0].message });
+    return;
+  } else {
+    try {
+      const data = req.body;
+      const user = await User.findByPk(data.client, { include: Subscription });
+      if (!user) {
+        res.status(404).json({
+          message: "The client does not exist",
+        });
+        return;
+      } else {
+        const { dataValues } = user as { dataValues: UserI };
+        if (
+          dataValues.Subscriptions[0].dataValues.numberProductsCreated <
+          data.quantityProducts
+        ) {
+          await Subscription.update(data, {
+            where: { id: dataValues.Subscriptions[0].dataValues.id },
+          });
+          res.status(200).json({ message: "Updated Subscription" });
+          return;
+        } else {
+          res.status(500).json({ message: "Error updating plan" });
+          return;
+        }
+      }
     } catch (error) {
       res.status(500).json({ error: "Error updating" });
       return;

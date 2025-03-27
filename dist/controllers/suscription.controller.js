@@ -12,12 +12,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deletePreapprovald = exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createActiveSubscriptionsPause = exports.createCanceledSubscriptionsPause = exports.createActiveSubscriptions = exports.createCanceledSubscriptions = exports.cancellationsSuscription = exports.updatedSuscription = exports.createSuscription = exports.getAllCancellations = exports.getAllSuscription = void 0;
+exports.deletePreapprovald = exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createActiveSubscriptionsPause = exports.createCanceledSubscriptionsPause = exports.createActiveSubscriptions = exports.createCanceledSubscriptions = exports.cancellationsSuscription = exports.updatedPlan = exports.updatedSuscription = exports.createSuscription = exports.getAllCancellations = exports.getAllSuscription = void 0;
 const suscriptionSchema_1 = require("../schemas/suscriptionSchema");
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
 const users_1 = __importDefault(require("../models/users"));
 const canceled_subscriptions_1 = __importDefault(require("../models/canceled_subscriptions"));
 const preapprovald_subscriptions_1 = __importDefault(require("../models/preapprovald_subscriptions"));
+const planSchema_1 = require("../schemas/planSchema");
 const getAllSuscription = (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const subscription = yield suscriptions_1.default.findAll();
@@ -125,6 +126,45 @@ const updatedSuscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.updatedSuscription = updatedSuscription;
+const updatedPlan = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { error } = planSchema_1.planSchemaUpdated.validate(req.body);
+    if (error) {
+        res.status(400).json({ error: error.details[0].message });
+        return;
+    }
+    else {
+        try {
+            const data = req.body;
+            const user = yield users_1.default.findByPk(data.client, { include: suscriptions_1.default });
+            if (!user) {
+                res.status(404).json({
+                    message: "The client does not exist",
+                });
+                return;
+            }
+            else {
+                const { dataValues } = user;
+                if (dataValues.Subscriptions[0].dataValues.numberProductsCreated <
+                    data.quantityProducts) {
+                    yield suscriptions_1.default.update(data, {
+                        where: { id: dataValues.Subscriptions[0].dataValues.id },
+                    });
+                    res.status(200).json({ message: "Updated Subscription" });
+                    return;
+                }
+                else {
+                    res.status(500).json({ message: "Error updating plan" });
+                    return;
+                }
+            }
+        }
+        catch (error) {
+            res.status(500).json({ error: "Error updating" });
+            return;
+        }
+    }
+});
+exports.updatedPlan = updatedPlan;
 const cancellationsSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { error } = suscriptionSchema_1.suscriptionSchemaUpdated.validate(req.body);
     if (error) {

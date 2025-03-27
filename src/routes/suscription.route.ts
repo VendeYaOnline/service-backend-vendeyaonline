@@ -14,6 +14,7 @@ import {
   deletePreapprovald,
   createCanceledSubscriptionsPause,
   createActiveSubscriptionsPause,
+  updatedPlan,
 } from "../controllers/suscription.controller";
 import { validateToken } from "../middlewares";
 
@@ -49,6 +50,7 @@ route.put("/updated-cancellations/:id", [
   validateToken,
   cancellationsSuscription,
 ]);
+route.put("/updated-plan", [validateToken, updatedPlan]);
 
 route.delete("/delete-suscription/:id", [validateToken, deleteSuscription]);
 route.delete("/delete-canceled_suscription/:id", [

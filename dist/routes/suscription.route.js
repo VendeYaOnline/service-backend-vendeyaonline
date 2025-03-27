@@ -33,6 +33,7 @@ route.put("/updated-cancellations/:id", [
     middlewares_1.validateToken,
     suscription_controller_1.cancellationsSuscription,
 ]);
+route.put("/updated-plan", [middlewares_1.validateToken, suscription_controller_1.updatedPlan]);
 route.delete("/delete-suscription/:id", [middlewares_1.validateToken, suscription_controller_1.deleteSuscription]);
 route.delete("/delete-canceled_suscription/:id", [
     middlewares_1.validateToken,

@@ -13,6 +13,7 @@ export interface SuscriptionI {
   id?: number;
   price: number;
   type: string;
+  numberProductsCreated: number;
   date: string;
   client: string;
 }
