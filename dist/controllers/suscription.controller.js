@@ -139,7 +139,7 @@ const updatedPlan = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             return res.status(404).json({ message: "The client does not exist" });
         }
         const { dataValues } = user;
-        const subscription = dataValues[0];
+        const subscription = dataValues.Subscriptions[0].dataValues;
         if (!subscription) {
             return res.status(404).json({ message: "No subscription found" });
         }
@@ -157,6 +157,7 @@ const updatedPlan = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             if (status === "pause") {
                 yield axios_1.default.put(preapprovalUrl, { status: "authorized" }, { headers });
                 yield axios_1.default.put(preapprovalUrl, {
+                    reason: "Plan " + data.type,
                     auto_recurring: {
                         frequency: 1,
                         frequency_type: "months",

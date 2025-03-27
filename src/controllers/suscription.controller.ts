@@ -122,8 +122,8 @@ export const updatedPlan = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "The client does not exist" });
     }
 
-    const { dataValues } = user as { dataValues: SuscriptionI[] };
-    const subscription = dataValues[0];
+    const { dataValues } = user as { dataValues: UserI };
+    const subscription = dataValues.Subscriptions[0].dataValues;
 
     if (!subscription) {
       return res.status(404).json({ message: "No subscription found" });
@@ -149,6 +149,7 @@ export const updatedPlan = async (req: Request, res: Response) => {
         await axios.put(
           preapprovalUrl,
           {
+            reason: "Plan " + data.type,
             auto_recurring: {
               frequency: 1,
               frequency_type: "months",

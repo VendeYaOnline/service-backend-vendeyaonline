@@ -17,7 +17,7 @@ export const createSubscription = async (req: Request, res: Response) => {
 
     const subscription = await preapproval.create({
       body: {
-        payer_email: "test_user_1698226555@testuser.com",
+        payer_email: "mikeparrado0@gmail.com",
         reason: "Plan " + plan,
         auto_recurring: {
           frequency: 1,
@@ -56,6 +56,18 @@ export const webhook = async (req: Request, res: Response) => {
 
       const paymentData = mercadopagoResponse.data;
       const subscriptionId = paymentData.preapproval_id;
+      await axios.put(
+        `https://api.mercadopago.com/preapproval/${subscriptionId}`,
+        {
+          status: "paused",
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       // Paso 2: Extraer el external_reference como ID del usuario
       const resultExternalReference = paymentData.external_reference.split("-");
@@ -113,27 +125,9 @@ export const webhook = async (req: Request, res: Response) => {
       await PreapprovaldSubscription.create({ client: client });
       res.sendStatus(200);
       return;
-    } else if (
-      type === "subscription_preapproval" &&
-      action === "updated" &&
-      version === 2
-    ) {
-      await axios.put(
-        `https://api.mercadopago.com/preapproval/${data.id}`,
-        {
-          status: "paused",
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      res.sendStatus(200);
-      return;
     } else {
       res.sendStatus(200);
+      return;
     }
   } catch (error) {
     console.error("Error procesando la notificación:", error);

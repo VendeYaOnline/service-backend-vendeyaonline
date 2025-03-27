@@ -28,7 +28,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
         const { plan, email, amount, user_id, quantityProducts } = req.body;
         const subscription = yield preapproval.create({
             body: {
-                payer_email: "test_user_1698226555@testuser.com",
+                payer_email: "mikeparrado0@gmail.com",
                 reason: "Plan " + plan,
                 auto_recurring: {
                     frequency: 1,
@@ -64,6 +64,14 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             });
             const paymentData = mercadopagoResponse.data;
             const subscriptionId = paymentData.preapproval_id;
+            yield axios_1.default.put(`https://api.mercadopago.com/preapproval/${subscriptionId}`, {
+                status: "paused",
+            }, {
+                headers: {
+                    Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+                    "Content-Type": "application/json",
+                },
+            });
             // Paso 2: Extraer el external_reference como ID del usuario
             const resultExternalReference = paymentData.external_reference.split("-");
             const clientId = resultExternalReference[0];
@@ -112,22 +120,9 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             res.sendStatus(200);
             return;
         }
-        else if (type === "subscription_preapproval" &&
-            action === "updated" &&
-            version === 2) {
-            yield axios_1.default.put(`https://api.mercadopago.com/preapproval/${data.id}`, {
-                status: "paused",
-            }, {
-                headers: {
-                    Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-                    "Content-Type": "application/json",
-                },
-            });
-            res.sendStatus(200);
-            return;
-        }
         else {
             res.sendStatus(200);
+            return;
         }
     }
     catch (error) {
