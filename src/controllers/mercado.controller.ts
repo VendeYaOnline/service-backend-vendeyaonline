@@ -17,7 +17,7 @@ export const createSubscription = async (req: Request, res: Response) => {
 
     const subscription = await preapproval.create({
       body: {
-        payer_email: "mikeparrado0@gmail.com",
+        payer_email: email,
         reason: "Plan " + plan,
         auto_recurring: {
           frequency: 1,

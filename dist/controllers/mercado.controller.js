@@ -28,7 +28,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
         const { plan, email, amount, user_id, quantityProducts } = req.body;
         const subscription = yield preapproval.create({
             body: {
-                payer_email: "mikeparrado0@gmail.com",
+                payer_email: email,
                 reason: "Plan " + plan,
                 auto_recurring: {
                     frequency: 1,
