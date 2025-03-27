@@ -9,6 +9,7 @@ import User from "../models/users";
 import CanceledSubscription from "../models/canceled_subscriptions";
 import PreapprovaldSubscription from "../models/preapprovald_subscriptions";
 import { planSchemaUpdated } from "../schemas/planSchema";
+import axios from "axios";
 
 export const getAllSuscription = async (_req: Request, res: Response) => {
   try {
@@ -110,37 +111,77 @@ export const updatedSuscription = async (req: Request, res: Response) => {
 export const updatedPlan = async (req: Request, res: Response) => {
   const { error } = planSchemaUpdated.validate(req.body);
   if (error) {
-    res.status(400).json({ error: error.details[0].message });
-    return;
-  } else {
-    try {
-      const data = req.body;
-      const user = await User.findByPk(data.client, { include: Subscription });
-      if (!user) {
-        res.status(404).json({
-          message: "The client does not exist",
-        });
-        return;
-      } else {
-        const { dataValues } = user as { dataValues: UserI };
-        if (
-          dataValues.Subscriptions[0].dataValues.numberProductsCreated <
-          data.quantityProducts
-        ) {
-          await Subscription.update(data, {
-            where: { id: dataValues.Subscriptions[0].dataValues.id },
-          });
-          res.status(200).json({ message: "Updated Subscription" });
-          return;
-        } else {
-          res.status(500).json({ message: "Error updating plan" });
-          return;
-        }
-      }
-    } catch (error) {
-      res.status(500).json({ error: "Error updating" });
-      return;
+    return res.status(400).json({ error: error.details[0].message });
+  }
+
+  try {
+    const data = req.body;
+    const user = await User.findByPk(data.client, { include: Subscription });
+
+    if (!user) {
+      return res.status(404).json({ message: "The client does not exist" });
     }
+
+    const { dataValues } = user as { dataValues: SuscriptionI[] };
+    const subscription = dataValues[0];
+
+    if (!subscription) {
+      return res.status(404).json({ message: "No subscription found" });
+    }
+
+    const { id, numberProductsCreated, status, subscriptionId } = subscription;
+
+    if (numberProductsCreated >= data.quantityProducts) {
+      return res.status(400).json({ message: "Error updating plan" });
+    }
+
+    await Subscription.update(data, { where: { id } });
+
+    if (status === "active" || status === "pause") {
+      const preapprovalUrl = `https://api.mercadopago.com/preapproval/${subscriptionId}`;
+      const headers = {
+        Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      };
+
+      if (status === "pause") {
+        await axios.put(preapprovalUrl, { status: "authorized" }, { headers });
+        await axios.put(
+          preapprovalUrl,
+          {
+            auto_recurring: {
+              frequency: 1,
+              frequency_type: "months",
+              transaction_amount: data.price,
+              currency_id: "COP",
+            },
+          },
+          { headers }
+        );
+        await axios.put(preapprovalUrl, { status: "paused" }, { headers });
+      } else {
+        await axios.put(
+          preapprovalUrl,
+          {
+            auto_recurring: {
+              frequency: 1,
+              frequency_type: "months",
+              transaction_amount: data.price,
+              currency_id: "COP",
+            },
+          },
+          { headers }
+        );
+      }
+
+      return res.status(200).json({ message: "Updated Subscription" });
+    }
+
+    return res
+      .status(400)
+      .json({ message: "It is not possible to update the plan" });
+  } catch (error) {
+    return res.status(500).json({ error: "Error updating" });
   }
 };
 

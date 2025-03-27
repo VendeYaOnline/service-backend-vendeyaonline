@@ -19,6 +19,7 @@ const users_1 = __importDefault(require("../models/users"));
 const canceled_subscriptions_1 = __importDefault(require("../models/canceled_subscriptions"));
 const preapprovald_subscriptions_1 = __importDefault(require("../models/preapprovald_subscriptions"));
 const planSchema_1 = require("../schemas/planSchema");
+const axios_1 = __importDefault(require("axios"));
 const getAllSuscription = (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const subscription = yield suscriptions_1.default.findAll();
@@ -129,39 +130,60 @@ exports.updatedSuscription = updatedSuscription;
 const updatedPlan = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { error } = planSchema_1.planSchemaUpdated.validate(req.body);
     if (error) {
-        res.status(400).json({ error: error.details[0].message });
-        return;
+        return res.status(400).json({ error: error.details[0].message });
     }
-    else {
-        try {
-            const data = req.body;
-            const user = yield users_1.default.findByPk(data.client, { include: suscriptions_1.default });
-            if (!user) {
-                res.status(404).json({
-                    message: "The client does not exist",
-                });
-                return;
+    try {
+        const data = req.body;
+        const user = yield users_1.default.findByPk(data.client, { include: suscriptions_1.default });
+        if (!user) {
+            return res.status(404).json({ message: "The client does not exist" });
+        }
+        const { dataValues } = user;
+        const subscription = dataValues[0];
+        if (!subscription) {
+            return res.status(404).json({ message: "No subscription found" });
+        }
+        const { id, numberProductsCreated, status, subscriptionId } = subscription;
+        if (numberProductsCreated >= data.quantityProducts) {
+            return res.status(400).json({ message: "Error updating plan" });
+        }
+        yield suscriptions_1.default.update(data, { where: { id } });
+        if (status === "active" || status === "pause") {
+            const preapprovalUrl = `https://api.mercadopago.com/preapproval/${subscriptionId}`;
+            const headers = {
+                Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+                "Content-Type": "application/json",
+            };
+            if (status === "pause") {
+                yield axios_1.default.put(preapprovalUrl, { status: "authorized" }, { headers });
+                yield axios_1.default.put(preapprovalUrl, {
+                    auto_recurring: {
+                        frequency: 1,
+                        frequency_type: "months",
+                        transaction_amount: data.price,
+                        currency_id: "COP",
+                    },
+                }, { headers });
+                yield axios_1.default.put(preapprovalUrl, { status: "paused" }, { headers });
             }
             else {
-                const { dataValues } = user;
-                if (dataValues.Subscriptions[0].dataValues.numberProductsCreated <
-                    data.quantityProducts) {
-                    yield suscriptions_1.default.update(data, {
-                        where: { id: dataValues.Subscriptions[0].dataValues.id },
-                    });
-                    res.status(200).json({ message: "Updated Subscription" });
-                    return;
-                }
-                else {
-                    res.status(500).json({ message: "Error updating plan" });
-                    return;
-                }
+                yield axios_1.default.put(preapprovalUrl, {
+                    auto_recurring: {
+                        frequency: 1,
+                        frequency_type: "months",
+                        transaction_amount: data.price,
+                        currency_id: "COP",
+                    },
+                }, { headers });
             }
+            return res.status(200).json({ message: "Updated Subscription" });
         }
-        catch (error) {
-            res.status(500).json({ error: "Error updating" });
-            return;
-        }
+        return res
+            .status(400)
+            .json({ message: "It is not possible to update the plan" });
+    }
+    catch (error) {
+        return res.status(500).json({ error: "Error updating" });
     }
 });
 exports.updatedPlan = updatedPlan;

@@ -34,7 +34,7 @@ export const createSubscription = async (req: Request, res: Response) => {
     res.status(201).json({ subscription_url: init_point });
     return;
   } catch (error: any) {
-    return res.status(error.status).json({ message: error.message });
+    return res.status(400).json({ message: error.message });
   }
 };
 

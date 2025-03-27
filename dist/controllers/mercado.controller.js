@@ -46,7 +46,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
         return;
     }
     catch (error) {
-        return res.status(error.status).json({ message: error.message });
+        return res.status(400).json({ message: error.message });
     }
 });
 exports.createSubscription = createSubscription;

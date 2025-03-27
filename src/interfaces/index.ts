@@ -14,6 +14,8 @@ export interface SuscriptionI {
   price: number;
   type: string;
   numberProductsCreated: number;
+  subscriptionId: string;
+  status: string;
   date: string;
   client: string;
 }
