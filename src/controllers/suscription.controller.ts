@@ -29,6 +29,37 @@ export const getAllSuscription = async (_req: Request, res: Response) => {
   }
 };
 
+export const getSuscriptionByUser = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const user = await User.findOne({
+      where: { id },
+      include: [Subscription, CanceledSubscription],
+    });
+    const { dataValues } = user as { dataValues: UserI };
+    if (
+      dataValues.Subscriptions.length ||
+      dataValues.CanceledSubscriptions.length
+    ) {
+      res.status(200).json({
+        subscription: true,
+      });
+      return;
+    } else {
+      res.status(200).json({
+        subscription: false,
+      });
+      return;
+    }
+  } catch (error: any) {
+    res.status(500).json({
+      message: "Error subscription",
+    });
+    return;
+  }
+};
+
 export const getAllCancellations = async (_req: Request, res: Response) => {
   try {
     const subscription = await CanceledSubscription.findAll();
@@ -404,9 +435,7 @@ export const getSuscription = async (req: Request, res: Response) => {
         !dataValues.CanceledSubscriptions.length
       ) {
         res.status(200).json({
-          subscription: {
-            ...dataValues.Subscriptions[0].dataValues,
-          },
+          subscription: dataValues.Subscriptions[0].dataValues,
         });
         return;
       } else if (
@@ -414,10 +443,7 @@ export const getSuscription = async (req: Request, res: Response) => {
         !dataValues.Subscriptions.length
       ) {
         res.status(200).json({
-          subscription: {
-            ...dataValues.CanceledSubscriptions[0].dataValues,
-            status: "Proceso de cancelación",
-          },
+          subscription: dataValues.CanceledSubscriptions[0].dataValues,
         });
         return;
       } else {

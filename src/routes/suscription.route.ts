@@ -15,12 +15,14 @@ import {
   createCanceledSubscriptionsPause,
   createActiveSubscriptionsPause,
   updatedPlan,
+  getSuscriptionByUser,
 } from "../controllers/suscription.controller";
 import { validateToken } from "../middlewares";
 
 const route = Router();
 
 route.get("/get-suscriptions", [validateToken, getAllSuscription]);
+route.get("/get-suscription-user/:id", [validateToken, getSuscriptionByUser]);
 
 route.get("/get-cancellations", [validateToken, getAllCancellations]);
 route.get("/get-suscription/:id", [validateToken, getSuscription]);
