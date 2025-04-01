@@ -23,11 +23,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyToken = exports.getAllUsers = exports.deleteUser = exports.updatedUser = exports.getUserByEmail = exports.updatedPasswordEmail = exports.updatedPassword = exports.loginUser = exports.createUser = void 0;
+exports.verifyToken = exports.changePassword = exports.getAllUsers = exports.deleteUser = exports.updatedUser = exports.getUserByEmail = exports.updatedPasswordEmail = exports.updatedPassword = exports.loginUser = exports.createUser = void 0;
 const users_1 = __importDefault(require("../models/users"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const userSchema_1 = require("../schemas/userSchema");
+const axios_1 = __importDefault(require("axios"));
 const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const data = req.body;
@@ -209,6 +210,30 @@ const getAllUsers = (_req, res) => __awaiter(void 0, void 0, void 0, function* (
     }
 });
 exports.getAllUsers = getAllUsers;
+const changePassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { email } = req.params;
+        const user = yield users_1.default.findOne({ where: { email } });
+        if (user) {
+            yield axios_1.default.post("https://app-email-production.up.railway.app/change-password", {
+                email,
+            }, {
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
+        }
+        else {
+            res.status(200).json({ message: "The email was sent" });
+        }
+        return;
+    }
+    catch (error) {
+        res.status(404).json({ message: "User not found" });
+        return;
+    }
+});
+exports.changePassword = changePassword;
 const verifyToken = (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     res.status(200).json({ message: "Valid token" });
 });

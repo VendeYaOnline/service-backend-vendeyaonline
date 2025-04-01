@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { UserI } from "../interfaces";
 import { loginSchema, userSchema } from "../schemas/userSchema";
+import axios from "axios";
 
 export const createUser = async (req: Request, res: Response) => {
   try {
@@ -193,6 +194,32 @@ export const getAllUsers = async (_req: Request, res: Response) => {
   try {
     const users = await User.findAll();
     res.status(200).json(users);
+    return;
+  } catch (error) {
+    res.status(404).json({ message: "User not found" });
+    return;
+  }
+};
+
+export const changePassword = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.params;
+    const user = await User.findOne({ where: { email } });
+    if (user) {
+      await axios.post(
+        "https://app-email-production.up.railway.app/change-password",
+        {
+          email,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    } else {
+      res.status(200).json({ message: "The email was sent" });
+    }
     return;
   } catch (error) {
     res.status(404).json({ message: "User not found" });

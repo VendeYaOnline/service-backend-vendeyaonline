@@ -6,7 +6,7 @@ const formatDate = (dateString) => {
     const day = String(date.getUTCDate()).padStart(2, "0");
     const month = String(date.getUTCMonth() + 1).padStart(2, "0"); // +1 porque los meses son 0-based
     const year = date.getUTCFullYear();
-    return `${day}-${month}-${year}`;
+    return `${day}/${month}/${year}`;
 };
 exports.formatDate = formatDate;
 const getSubscriptionType = (reason) => {
