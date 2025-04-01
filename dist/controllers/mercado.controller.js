@@ -28,7 +28,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
         const { plan, email, amount, user_id, quantityProducts } = req.body;
         const subscription = yield preapproval.create({
             body: {
-                payer_email: email,
+                payer_email: "test_user_1698226555@testuser.com",
                 reason: "Plan " + plan,
                 auto_recurring: {
                     frequency: 1,
@@ -54,6 +54,7 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { action, type, data } = req.body;
         if (type === "subscription_authorized_payment" && action === "created") {
+            console.log("LA DATA QUE ME LLEGA", data);
             // Paso 1: Consultar la API de Mercado Pago
             const paymentId = data.id;
             const mercadopagoResponse = yield axios_1.default.get(`https://api.mercadopago.com/authorized_payments/${paymentId}`, {

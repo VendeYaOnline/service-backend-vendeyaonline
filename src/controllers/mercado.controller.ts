@@ -17,7 +17,7 @@ export const createSubscription = async (req: Request, res: Response) => {
 
     const subscription = await preapproval.create({
       body: {
-        payer_email: email,
+        payer_email: "test_user_1698226555@testuser.com",
         reason: "Plan " + plan,
         auto_recurring: {
           frequency: 1,
@@ -42,6 +42,7 @@ export const webhook = async (req: Request, res: Response) => {
   try {
     const { action, type, data } = req.body;
     if (type === "subscription_authorized_payment" && action === "created") {
+      console.log("LA DATA QUE ME LLEGA", data);
       // Paso 1: Consultar la API de Mercado Pago
       const paymentId = data.id;
       const mercadopagoResponse = await axios.get(
