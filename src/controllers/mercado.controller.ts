@@ -42,7 +42,6 @@ export const webhook = async (req: Request, res: Response) => {
   try {
     const { action, type, data } = req.body;
     if (type === "subscription_authorized_payment" && action === "created") {
-      console.log("LA DATA QUE ME LLEGA", data);
       // Paso 1: Consultar la API de Mercado Pago
       const paymentId = data.id;
       const mercadopagoResponse = await axios.get(
@@ -75,9 +74,9 @@ export const webhook = async (req: Request, res: Response) => {
         {
           to: "colinparrado@gmail.com",
           client: "Yosip Parrado",
-          plan: "Emprendedor",
-          price: "80.000",
-          date: "31/03/2025",
+          plan: getSubscriptionType(paymentData.reason),
+          price: Math.round(paymentData.transaction_amount),
+          date: formatDate(paymentData.date_created),
         },
         {
           headers: {
@@ -120,6 +119,22 @@ export const webhook = async (req: Request, res: Response) => {
         date: formatDate(paymentData.date_created),
         subscriptionId: subscriptionId,
       };
+
+      await axios.post(
+        "https://app-email-production.up.railway.app/subscription-confirmed",
+        {
+          to: dataValues.email,
+          client: dataValues.username,
+          plan: getSubscriptionType(paymentData.reason),
+          price: Math.round(paymentData.transaction_amount),
+          date: formatDate(paymentData.date_created),
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       await Subscription.create(subscriptionData);
       await PreapprovaldSubscription.destroy({

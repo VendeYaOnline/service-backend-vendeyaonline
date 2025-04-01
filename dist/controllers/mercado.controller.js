@@ -54,7 +54,6 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { action, type, data } = req.body;
         if (type === "subscription_authorized_payment" && action === "created") {
-            console.log("LA DATA QUE ME LLEGA", data);
             // Paso 1: Consultar la API de Mercado Pago
             const paymentId = data.id;
             const mercadopagoResponse = yield axios_1.default.get(`https://api.mercadopago.com/authorized_payments/${paymentId}`, {
@@ -76,9 +75,9 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             yield axios_1.default.post("https://app-email-production.up.railway.app/subscription-confirmed", {
                 to: "colinparrado@gmail.com",
                 client: "Yosip Parrado",
-                plan: "Emprendedor",
-                price: "80.000",
-                date: "31/03/2025",
+                plan: (0, utils_1.getSubscriptionType)(paymentData.reason),
+                price: Math.round(paymentData.transaction_amount),
+                date: (0, utils_1.formatDate)(paymentData.date_created),
             }, {
                 headers: {
                     "Content-Type": "application/json",
@@ -113,6 +112,17 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 date: (0, utils_1.formatDate)(paymentData.date_created),
                 subscriptionId: subscriptionId,
             };
+            yield axios_1.default.post("https://app-email-production.up.railway.app/subscription-confirmed", {
+                to: dataValues.email,
+                client: dataValues.username,
+                plan: (0, utils_1.getSubscriptionType)(paymentData.reason),
+                price: Math.round(paymentData.transaction_amount),
+                date: (0, utils_1.formatDate)(paymentData.date_created),
+            }, {
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
             yield suscriptions_1.default.create(subscriptionData);
             yield preapprovald_subscriptions_1.default.destroy({
                 where: { client: clientId },
