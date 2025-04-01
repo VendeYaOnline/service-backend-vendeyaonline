@@ -5,6 +5,7 @@ const suscription_controller_1 = require("../controllers/suscription.controller"
 const middlewares_1 = require("../middlewares");
 const route = (0, express_1.Router)();
 route.get("/get-suscriptions", [middlewares_1.validateToken, suscription_controller_1.getAllSuscription]);
+route.get("/get-suscription-user/:id", [middlewares_1.validateToken, suscription_controller_1.getSuscriptionByUser]);
 route.get("/get-cancellations", [middlewares_1.validateToken, suscription_controller_1.getAllCancellations]);
 route.get("/get-suscription/:id", [middlewares_1.validateToken, suscription_controller_1.getSuscription]);
 route.get("/get-canceled_suscription/:id", [

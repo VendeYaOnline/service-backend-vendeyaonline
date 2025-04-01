@@ -40,7 +40,7 @@ export const createSubscription = async (req: Request, res: Response) => {
 
 export const webhook = async (req: Request, res: Response) => {
   try {
-    const { action, type, data, version } = req.body;
+    const { action, type, data } = req.body;
     if (type === "subscription_authorized_payment" && action === "created") {
       // Paso 1: Consultar la API de Mercado Pago
       const paymentId = data.id;
@@ -64,6 +64,22 @@ export const webhook = async (req: Request, res: Response) => {
         {
           headers: {
             Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      await axios.post(
+        "https://app-email-production.up.railway.app/subscription-confirmed",
+        {
+          to: "colinparrado@gmail.com",
+          client: "Yosip Parrado",
+          plan: "Emprendedor",
+          price: "80.000",
+          date: "31/03/2025",
+        },
+        {
+          headers: {
             "Content-Type": "application/json",
           },
         }

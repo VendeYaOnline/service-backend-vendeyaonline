@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deletePreapprovald = exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createActiveSubscriptionsPause = exports.createCanceledSubscriptionsPause = exports.createActiveSubscriptions = exports.createCanceledSubscriptions = exports.cancellationsSuscription = exports.updatedPlan = exports.updatedSuscription = exports.createSuscription = exports.getAllCancellations = exports.getAllSuscription = void 0;
+exports.deletePreapprovald = exports.deleteCanceledSuscription = exports.deleteSuscription = exports.getCanceledSuscription = exports.getSuscription = exports.createActiveSubscriptionsPause = exports.createCanceledSubscriptionsPause = exports.createActiveSubscriptions = exports.createCanceledSubscriptions = exports.cancellationsSuscription = exports.updatedPlan = exports.updatedSuscription = exports.createSuscription = exports.getAllCancellations = exports.getSuscriptionByUser = exports.getAllSuscription = void 0;
 const suscriptionSchema_1 = require("../schemas/suscriptionSchema");
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
 const users_1 = __importDefault(require("../models/users"));
@@ -40,6 +40,36 @@ const getAllSuscription = (_req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.getAllSuscription = getAllSuscription;
+const getSuscriptionByUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    try {
+        const user = yield users_1.default.findOne({
+            where: { id },
+            include: [suscriptions_1.default, canceled_subscriptions_1.default],
+        });
+        const { dataValues } = user;
+        if (dataValues.Subscriptions.length ||
+            dataValues.CanceledSubscriptions.length) {
+            res.status(200).json({
+                subscription: true,
+            });
+            return;
+        }
+        else {
+            res.status(200).json({
+                subscription: false,
+            });
+            return;
+        }
+    }
+    catch (error) {
+        res.status(500).json({
+            message: "Error subscription",
+        });
+        return;
+    }
+});
+exports.getSuscriptionByUser = getSuscriptionByUser;
 const getAllCancellations = (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const subscription = yield canceled_subscriptions_1.default.findAll();
@@ -396,14 +426,14 @@ const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function*
             if (dataValues.Subscriptions.length &&
                 !dataValues.CanceledSubscriptions.length) {
                 res.status(200).json({
-                    subscription: Object.assign({}, dataValues.Subscriptions[0].dataValues),
+                    subscription: dataValues.Subscriptions[0].dataValues,
                 });
                 return;
             }
             else if (dataValues.CanceledSubscriptions.length &&
                 !dataValues.Subscriptions.length) {
                 res.status(200).json({
-                    subscription: Object.assign(Object.assign({}, dataValues.CanceledSubscriptions[0].dataValues), { status: "Proceso de cancelación" }),
+                    subscription: dataValues.CanceledSubscriptions[0].dataValues,
                 });
                 return;
             }
