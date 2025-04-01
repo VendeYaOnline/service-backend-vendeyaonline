@@ -127,11 +127,25 @@ export const updatedSuscription = async (req: Request, res: Response) => {
     try {
       const data = req.body;
       const { id } = req.params;
-      await Subscription.update(data, {
+      const headers = {
+        Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      };
+      const subscription = await Subscription.update(data, {
+        returning: true,
         where: { id },
       });
-      res.status(200).json({ message: "Updated Subscription" });
-      return;
+      const { dataValues } = subscription[1][0] as { dataValues: SuscriptionI };
+      const preapprovalUrl = `https://api.mercadopago.com/preapproval/${dataValues.subscriptionId}`;
+      if (data.status === "active") {
+        await axios.put(preapprovalUrl, { status: "authorized" }, { headers });
+        res.status(200).json({ message: "Updated Subscription" });
+        return;
+      } else {
+        await axios.put(preapprovalUrl, { status: "paused" }, { headers });
+        res.status(200).json({ message: "Updated Subscription" });
+        return;
+      }
     } catch (error) {
       res.status(500).json({ error: "Error updating" });
       return;
@@ -195,6 +209,7 @@ export const updatedPlan = async (req: Request, res: Response) => {
         await axios.put(
           preapprovalUrl,
           {
+            reason: "Plan " + data.type,
             auto_recurring: {
               frequency: 1,
               frequency_type: "months",

@@ -144,11 +144,26 @@ const updatedSuscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
         try {
             const data = req.body;
             const { id } = req.params;
-            yield suscriptions_1.default.update(data, {
+            const headers = {
+                Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+                "Content-Type": "application/json",
+            };
+            const subscription = yield suscriptions_1.default.update(data, {
+                returning: true,
                 where: { id },
             });
-            res.status(200).json({ message: "Updated Subscription" });
-            return;
+            const { dataValues } = subscription[1][0];
+            const preapprovalUrl = `https://api.mercadopago.com/preapproval/${dataValues.subscriptionId}`;
+            if (data.status === "active") {
+                yield axios_1.default.put(preapprovalUrl, { status: "authorized" }, { headers });
+                res.status(200).json({ message: "Updated Subscription" });
+                return;
+            }
+            else {
+                yield axios_1.default.put(preapprovalUrl, { status: "paused" }, { headers });
+                res.status(200).json({ message: "Updated Subscription" });
+                return;
+            }
         }
         catch (error) {
             res.status(500).json({ error: "Error updating" });
@@ -199,6 +214,7 @@ const updatedPlan = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             }
             else {
                 yield axios_1.default.put(preapprovalUrl, {
+                    reason: "Plan " + data.type,
                     auto_recurring: {
                         frequency: 1,
                         frequency_type: "months",
