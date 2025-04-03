@@ -28,7 +28,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
         const { plan, email, amount, user_id, quantityProducts } = req.body;
         const subscription = yield preapproval.create({
             body: {
-                payer_email: "test_user_1698226555@testuser.com",
+                payer_email: email,
                 reason: "Plan " + plan,
                 auto_recurring: {
                     frequency: 1,
@@ -36,7 +36,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
                     transaction_amount: amount,
                     currency_id: "COP",
                 },
-                back_url: "https://vendeyaonline.com/account",
+                back_url: "https://www.vendeyaonline.com/account",
                 status: "pending",
                 external_reference: user_id + "-" + quantityProducts,
             },
@@ -69,17 +69,6 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             }, {
                 headers: {
                     Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-                    "Content-Type": "application/json",
-                },
-            });
-            yield axios_1.default.post("https://app-email-production.up.railway.app/subscription-confirmed", {
-                to: "colinparrado@gmail.com",
-                client: "Yosip Parrado",
-                plan: (0, utils_1.getSubscriptionType)(paymentData.reason),
-                price: Math.round(paymentData.transaction_amount),
-                date: (0, utils_1.formatDate)(paymentData.date_created),
-            }, {
-                headers: {
                     "Content-Type": "application/json",
                 },
             });

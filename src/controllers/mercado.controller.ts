@@ -17,7 +17,7 @@ export const createSubscription = async (req: Request, res: Response) => {
 
     const subscription = await preapproval.create({
       body: {
-        payer_email: "test_user_1698226555@testuser.com",
+        payer_email: email,
         reason: "Plan " + plan,
         auto_recurring: {
           frequency: 1,
@@ -25,7 +25,7 @@ export const createSubscription = async (req: Request, res: Response) => {
           transaction_amount: amount,
           currency_id: "COP",
         },
-        back_url: "https://vendeyaonline.com/account",
+        back_url: "https://www.vendeyaonline.com/account",
         status: "pending",
         external_reference: user_id + "-" + quantityProducts,
       },
@@ -64,22 +64,6 @@ export const webhook = async (req: Request, res: Response) => {
         {
           headers: {
             Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      await axios.post(
-        "https://app-email-production.up.railway.app/subscription-confirmed",
-        {
-          to: "colinparrado@gmail.com",
-          client: "Yosip Parrado",
-          plan: getSubscriptionType(paymentData.reason),
-          price: Math.round(paymentData.transaction_amount),
-          date: formatDate(paymentData.date_created),
-        },
-        {
-          headers: {
             "Content-Type": "application/json",
           },
         }
