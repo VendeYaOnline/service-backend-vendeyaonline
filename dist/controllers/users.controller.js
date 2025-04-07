@@ -222,6 +222,7 @@ const changePassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
                     "Content-Type": "application/json",
                 },
             });
+            res.status(200).json({ message: "The email was sent" });
         }
         else {
             res.status(200).json({ message: "The email was sent" });
@@ -229,7 +230,7 @@ const changePassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
         return;
     }
     catch (error) {
-        res.status(404).json({ message: "User not found" });
+        res.status(200).json({ message: "The email was sent" });
         return;
     }
 });

@@ -217,12 +217,13 @@ export const changePassword = async (req: Request, res: Response) => {
           },
         }
       );
+      res.status(200).json({ message: "The email was sent" });
     } else {
       res.status(200).json({ message: "The email was sent" });
     }
     return;
   } catch (error) {
-    res.status(404).json({ message: "User not found" });
+    res.status(200).json({ message: "The email was sent" });
     return;
   }
 };
