@@ -13,7 +13,7 @@ dotenv.config();
 app.set("port", process.env.PORT || 5000);
 
 //MIDLEWARES
-app.use(cors(corsOptions));
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 //ROUTES

@@ -202,7 +202,7 @@ export const updatedPlan = async (req: Request, res: Response) => {
               currency_id: "COP",
             },
           },
-          { headers }
+          { headers },
         );
         await axios.put(preapprovalUrl, { status: "paused" }, { headers });
       } else {
@@ -217,7 +217,7 @@ export const updatedPlan = async (req: Request, res: Response) => {
               currency_id: "COP",
             },
           },
-          { headers }
+          { headers },
         );
       }
 
@@ -255,7 +255,7 @@ export const cancellationsSuscription = async (req: Request, res: Response) => {
 
 export const createCanceledSubscriptions = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   const { error } = suscriptionSchema.validate(req.body);
   if (error) {
@@ -303,7 +303,7 @@ export const createCanceledSubscriptions = async (
 
 export const createActiveSubscriptions = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   const { error } = suscriptionSchema.validate(req.body);
   if (error) {
@@ -355,7 +355,7 @@ export const createActiveSubscriptions = async (
 
 export const createCanceledSubscriptionsPause = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   try {
     const data = req.body;
@@ -372,7 +372,7 @@ export const createCanceledSubscriptionsPause = async (
       if (dataValues.Subscriptions.length) {
         await Subscription.update(
           { status: "pause-canceled" },
-          { where: { id: dataValues.Subscriptions[0].dataValues.id || 0 } }
+          { where: { id: dataValues.Subscriptions[0].dataValues.id || 0 } },
         );
         res.status(201).json({
           message: "Subscription updated successfully",
@@ -395,7 +395,7 @@ export const createCanceledSubscriptionsPause = async (
 
 export const createActiveSubscriptionsPause = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   try {
     const data = req.body;
@@ -412,7 +412,7 @@ export const createActiveSubscriptionsPause = async (
       if (dataValues.Subscriptions.length) {
         await Subscription.update(
           { status: "pause" },
-          { where: { id: dataValues.Subscriptions[0].dataValues.id || 0 } }
+          { where: { id: dataValues.Subscriptions[0].dataValues.id || 0 } },
         );
         res.status(201).json({
           message: "Subscription updated successfully",
@@ -449,11 +449,38 @@ export const getSuscription = async (req: Request, res: Response) => {
         dataValues.Subscriptions.length &&
         !dataValues.CanceledSubscriptions.length
       ) {
+        const subscriptionData = dataValues.Subscriptions[0].dataValues;
+        let preapproval_id: string | null = null;
+        try {
+          const searchResponse = await axios.get(
+            `https://api.mercadopago.com/preapproval/search?payer_email=${dataValues.email}`,
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+                "Content-Type": "application/json",
+              },
+            },
+          );
+          const results: any[] = searchResponse.data?.results ?? [];
+          const authorized = results.find(
+            (r: any) => r.status === "authorized",
+          );
+          if (authorized) {
+            preapproval_id = authorized.id;
+          }
+        } catch (error: any) {
+          console.error(
+            "Error al buscar preapproval en MercadoPago:",
+            error?.response?.data ?? error?.message ?? error,
+          );
+        }
+
         res.status(200).json({
           subscription: {
-            ...dataValues.Subscriptions[0].dataValues,
+            ...subscriptionData,
             email: dataValues.email,
             date_limit: "",
+            preapproval_id,
           },
           preapproval: false,
         });
@@ -536,7 +563,7 @@ export const deleteSuscription = async (req: Request, res: Response) => {
 
 export const deleteCanceledSuscription = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   const { id } = req.params;
   if (!id) {
