@@ -3,7 +3,7 @@ import { MercadoPagoConfig, PreApproval } from "mercadopago";
 import axios from "axios";
 import User from "../models/users";
 import Subscription from "../models/suscriptions";
-import { UserI } from "../interfaces";
+import { SuscriptionI, UserI } from "../interfaces";
 import { formatDate, getSubscriptionType } from "../utils";
 import PreapprovaldSubscription from "../models/preapprovald_subscriptions";
 
@@ -35,6 +35,57 @@ export const createSubscription = async (req: Request, res: Response) => {
     return;
   } catch (error: any) {
     return res.status(400).json({ message: error.message });
+  }
+};
+
+export const updatePaymentMethod = async (req: Request, res: Response) => {
+  const { subscriptionId, client } = req.body;
+
+  if (!subscriptionId || !client) {
+    res.status(400).json({ message: "No se pudo obtener la URL de actualización de pago" });
+    return;
+  }
+
+  try {
+    const subscription = await Subscription.findOne({
+      where: { subscriptionId, client },
+    });
+
+    if (!subscription) {
+      res.status(404).json({ message: "No se pudo obtener la URL de actualización de pago" });
+      return;
+    }
+
+    const { dataValues } = subscription as { dataValues: SuscriptionI };
+
+    if (dataValues.status !== "active" && dataValues.status !== "pause") {
+      res.status(400).json({ message: "No se pudo obtener la URL de actualización de pago" });
+      return;
+    }
+
+    const mpResponse = await axios.get(
+      `https://api.mercadopago.com/preapproval/${subscriptionId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const { init_point } = mpResponse.data;
+
+    if (!init_point) {
+      res.status(500).json({ message: "No se pudo obtener la URL de actualización de pago" });
+      return;
+    }
+
+    res.status(200).json({ url: init_point });
+    return;
+  } catch (error: any) {
+    console.error("Error al obtener URL de actualización de pago:", error);
+    res.status(500).json({ message: "No se pudo obtener la URL de actualización de pago" });
+    return;
   }
 };
 
