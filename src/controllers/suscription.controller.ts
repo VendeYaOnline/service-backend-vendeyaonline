@@ -450,7 +450,12 @@ export const getSuscription = async (req: Request, res: Response) => {
         !dataValues.CanceledSubscriptions.length
       ) {
         res.status(200).json({
-          subscription: dataValues.Subscriptions[0].dataValues,
+          subscription: {
+            ...dataValues.Subscriptions[0].dataValues,
+            email: dataValues.email,
+            date_limit: "",
+          },
+          preapproval: false,
         });
         return;
       } else if (
@@ -458,7 +463,11 @@ export const getSuscription = async (req: Request, res: Response) => {
         !dataValues.Subscriptions.length
       ) {
         res.status(200).json({
-          subscription: dataValues.CanceledSubscriptions[0].dataValues,
+          subscription: {
+            ...dataValues.CanceledSubscriptions[0].dataValues,
+            email: dataValues.email,
+          },
+          preapproval: false,
         });
         return;
       } else {

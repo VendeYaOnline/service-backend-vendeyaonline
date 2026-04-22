@@ -30,7 +30,13 @@ export const createSubscription = async (req: Request, res: Response) => {
         external_reference: user_id + "-" + quantityProducts,
       },
     });
-    const { init_point } = subscription;
+    const { init_point, id: preapprovalId } = subscription;
+    if (preapprovalId) {
+      await Subscription.update(
+        { subscriptionId: preapprovalId },
+        { where: { client: user_id } }
+      );
+    }
     res.status(201).json({ subscription_url: init_point });
     return;
   } catch (error: any) {
@@ -39,17 +45,15 @@ export const createSubscription = async (req: Request, res: Response) => {
 };
 
 export const updatePaymentMethod = async (req: Request, res: Response) => {
-  const { subscriptionId, client } = req.body;
+  const { id } = req.body;
 
-  if (!subscriptionId || !client) {
+  if (!id) {
     res.status(400).json({ message: "No se pudo obtener la URL de actualización de pago" });
     return;
   }
 
   try {
-    const subscription = await Subscription.findOne({
-      where: { subscriptionId, client },
-    });
+    const subscription = await Subscription.findByPk(id);
 
     if (!subscription) {
       res.status(404).json({ message: "No se pudo obtener la URL de actualización de pago" });
@@ -64,7 +68,7 @@ export const updatePaymentMethod = async (req: Request, res: Response) => {
     }
 
     const mpResponse = await axios.get(
-      `https://api.mercadopago.com/preapproval/${subscriptionId}`,
+      `https://api.mercadopago.com/preapproval/${dataValues.subscriptionId}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
