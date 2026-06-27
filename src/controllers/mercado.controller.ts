@@ -26,9 +26,10 @@ export const createSubscription = async (req: Request, res: Response) => {
           currency_id: "COP",
         },
         back_url: "https://www.vendeyaonline.com/account",
+        notification_url: "https://service-backend-vendeyaonline-production.up.railway.app/api/subscription_notification",
         status: "pending",
         external_reference: user_id + "-" + quantityProducts,
-      },
+      } as any,
     });
     const { init_point, id: preapprovalId } = subscription;
     if (preapprovalId) {

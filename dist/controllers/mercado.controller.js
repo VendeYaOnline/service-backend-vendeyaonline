@@ -37,6 +37,7 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
                     currency_id: "COP",
                 },
                 back_url: "https://www.vendeyaonline.com/account",
+                notification_url: "https://service-backend-vendeyaonline-production.up.railway.app/api/subscription_notification",
                 status: "pending",
                 external_reference: user_id + "-" + quantityProducts,
             },
@@ -92,8 +93,11 @@ const updatePaymentMethod = (req, res) => __awaiter(void 0, void 0, void 0, func
 });
 exports.updatePaymentMethod = updatePaymentMethod;
 const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c;
     try {
         const { action, type, data } = req.body;
+        console.log("[WEBHOOK] Body recibido:", JSON.stringify(req.body, null, 2));
+        console.log(`[WEBHOOK] type="${type}" action="${action}" data.id="${data === null || data === void 0 ? void 0 : data.id}"`);
         if (type === "subscription_authorized_payment" && action === "created") {
             // Paso 1: Consultar la API de Mercado Pago
             const paymentId = data.id;
@@ -105,18 +109,17 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             });
             const paymentData = mercadopagoResponse.data;
             const subscriptionId = paymentData.preapproval_id;
-            yield axios_1.default.put(`https://api.mercadopago.com/preapproval/${subscriptionId}`, {
-                status: "paused",
-            }, {
-                headers: {
-                    Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-                    "Content-Type": "application/json",
-                },
-            });
             // Paso 2: Extraer el external_reference como ID del usuario
+            console.log("[WEBHOOK] paymentData:", JSON.stringify(paymentData, null, 2));
+            if (!paymentData.external_reference) {
+                console.error("[WEBHOOK] external_reference no disponible en el pago autorizado", paymentId);
+                res.sendStatus(200);
+                return;
+            }
             const resultExternalReference = paymentData.external_reference.split("-");
             const clientId = resultExternalReference[0];
             const quantityProducts = resultExternalReference[1];
+            console.log(`[WEBHOOK] clientId="${clientId}" quantityProducts="${quantityProducts}"`);
             // Paso 3: Validar el usuario en la base de datos
             const user = yield users_1.default.findByPk(clientId, {
                 include: [suscriptions_1.default],
@@ -142,32 +145,74 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 date: (0, utils_1.formatDate)(paymentData.date_created),
                 subscriptionId: subscriptionId,
             };
-            yield axios_1.default.post("https://app-email-production.up.railway.app/subscription-confirmed", {
-                to: dataValues.email,
-                client: dataValues.username,
-                plan: (0, utils_1.getSubscriptionType)(paymentData.reason),
-                price: Math.round(paymentData.transaction_amount),
-                date: (0, utils_1.formatDate)(paymentData.date_created),
-            }, {
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            });
+            console.log("[WEBHOOK] Creando suscripción:", JSON.stringify(subscriptionData, null, 2));
             yield suscriptions_1.default.create(subscriptionData);
+            console.log("[WEBHOOK] Suscripción creada exitosamente en BD");
             yield preapprovald_subscriptions_1.default.destroy({
                 where: { client: clientId },
             });
+            // Pausar la suscripción en MP después de guardar en BD
+            if (subscriptionId) {
+                try {
+                    yield axios_1.default.put(`https://api.mercadopago.com/preapproval/${subscriptionId}`, { status: "paused" }, {
+                        headers: {
+                            Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+                            "Content-Type": "application/json",
+                        },
+                    });
+                }
+                catch (pauseError) {
+                    console.error("Error al pausar suscripción en MP:", pauseError);
+                }
+            }
+            // Enviar email de confirmación (no bloquea si falla)
+            try {
+                yield axios_1.default.post("https://app-email-production.up.railway.app/subscription-confirmed", {
+                    to: dataValues.email,
+                    client: dataValues.username,
+                    plan: (0, utils_1.getSubscriptionType)(paymentData.reason),
+                    price: Math.round(paymentData.transaction_amount),
+                    date: (0, utils_1.formatDate)(paymentData.date_created),
+                }, {
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                });
+            }
+            catch (emailError) {
+                console.error("Error al enviar email de confirmación:", emailError);
+            }
             res.sendStatus(200);
             return;
         }
         else if (type === "payment" && action === "payment.created") {
-            const mercadopagoResponse = yield axios_1.default.get(`https://api.mercadopago.com/v1/payments/${data.id}`, {
-                headers: {
-                    Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-                    "Content-Type": "application/json",
-                },
-            });
-            const client = mercadopagoResponse.data.external_reference.split("-")[0];
+            let mercadopagoResponse;
+            try {
+                mercadopagoResponse = yield axios_1.default.get(`https://api.mercadopago.com/v1/payments/${data.id}`, {
+                    headers: {
+                        Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+                        "Content-Type": "application/json",
+                    },
+                });
+            }
+            catch (paymentError) {
+                console.log(`[WEBHOOK] Pago ${data.id} no encontrado o rechazado, ignorando.`);
+                res.sendStatus(200);
+                return;
+            }
+            const paymentStatus = mercadopagoResponse.data.status;
+            if (paymentStatus !== "approved") {
+                console.log(`[WEBHOOK] Pago ${data.id} con status "${paymentStatus}", ignorando.`);
+                res.sendStatus(200);
+                return;
+            }
+            const externalReference = mercadopagoResponse.data.external_reference;
+            if (!externalReference) {
+                console.log(`[WEBHOOK] Pago ${data.id} sin external_reference, ignorando.`);
+                res.sendStatus(200);
+                return;
+            }
+            const client = externalReference.split("-")[0];
             yield preapprovald_subscriptions_1.default.create({ client: client });
             res.sendStatus(200);
             return;
@@ -178,7 +223,7 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         }
     }
     catch (error) {
-        console.error("Error procesando la notificación:", error);
+        console.error("[WEBHOOK] Error procesando la notificación:", (_c = (_b = (_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.data) !== null && _b !== void 0 ? _b : error === null || error === void 0 ? void 0 : error.message) !== null && _c !== void 0 ? _c : error);
         res.sendStatus(500);
     }
 });
