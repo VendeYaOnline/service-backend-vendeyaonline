@@ -205,17 +205,38 @@ export const webhook = async (req: Request, res: Response) => {
       res.sendStatus(200);
       return;
     } else if (type === "payment" && action === "payment.created") {
-      const mercadopagoResponse = await axios.get(
-        `https://api.mercadopago.com/v1/payments/${data.id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      let mercadopagoResponse;
+      try {
+        mercadopagoResponse = await axios.get(
+          `https://api.mercadopago.com/v1/payments/${data.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      } catch (paymentError: any) {
+        console.log(`[WEBHOOK] Pago ${data.id} no encontrado o rechazado, ignorando.`);
+        res.sendStatus(200);
+        return;
+      }
 
-      const client = mercadopagoResponse.data.external_reference.split("-")[0];
+      const paymentStatus = mercadopagoResponse.data.status;
+      if (paymentStatus !== "approved") {
+        console.log(`[WEBHOOK] Pago ${data.id} con status "${paymentStatus}", ignorando.`);
+        res.sendStatus(200);
+        return;
+      }
+
+      const externalReference = mercadopagoResponse.data.external_reference;
+      if (!externalReference) {
+        console.log(`[WEBHOOK] Pago ${data.id} sin external_reference, ignorando.`);
+        res.sendStatus(200);
+        return;
+      }
+
+      const client = externalReference.split("-")[0];
       await PreapprovaldSubscription.create({ client: client });
       res.sendStatus(200);
       return;
