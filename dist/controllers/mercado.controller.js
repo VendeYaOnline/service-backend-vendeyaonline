@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.webhook = exports.createSubscription = void 0;
+exports.webhook = exports.updatePaymentMethod = exports.createSubscription = void 0;
 const mercadopago_1 = require("mercadopago");
 const axios_1 = __importDefault(require("axios"));
 const users_1 = __importDefault(require("../models/users"));
@@ -41,7 +41,10 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
                 external_reference: user_id + "-" + quantityProducts,
             },
         });
-        const { init_point } = subscription;
+        const { init_point, id: preapprovalId } = subscription;
+        if (preapprovalId) {
+            yield suscriptions_1.default.update({ subscriptionId: preapprovalId }, { where: { client: user_id } });
+        }
         res.status(201).json({ subscription_url: init_point });
         return;
     }
@@ -50,6 +53,44 @@ const createSubscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.createSubscription = createSubscription;
+const updatePaymentMethod = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.body;
+    if (!id) {
+        res.status(400).json({ message: "No se pudo obtener la URL de actualización de pago" });
+        return;
+    }
+    try {
+        const subscription = yield suscriptions_1.default.findByPk(id);
+        if (!subscription) {
+            res.status(404).json({ message: "No se pudo obtener la URL de actualización de pago" });
+            return;
+        }
+        const { dataValues } = subscription;
+        if (dataValues.status !== "active" && dataValues.status !== "pause") {
+            res.status(400).json({ message: "No se pudo obtener la URL de actualización de pago" });
+            return;
+        }
+        const mpResponse = yield axios_1.default.get(`https://api.mercadopago.com/preapproval/${dataValues.subscriptionId}`, {
+            headers: {
+                Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+                "Content-Type": "application/json",
+            },
+        });
+        const { init_point } = mpResponse.data;
+        if (!init_point) {
+            res.status(500).json({ message: "No se pudo obtener la URL de actualización de pago" });
+            return;
+        }
+        res.status(200).json({ url: init_point });
+        return;
+    }
+    catch (error) {
+        console.error("Error al obtener URL de actualización de pago:", error);
+        res.status(500).json({ message: "No se pudo obtener la URL de actualización de pago" });
+        return;
+    }
+});
+exports.updatePaymentMethod = updatePaymentMethod;
 const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { action, type, data } = req.body;

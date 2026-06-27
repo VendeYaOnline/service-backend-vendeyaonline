@@ -77,7 +77,7 @@ const loginUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         else {
             const user = yield users_1.default.findOne({ where: { email } });
             if (!user) {
-                res.status(404).json({ error: "Incorrect password or email" });
+                res.status(401).json({ error: "Incorrect password or email" });
                 return;
             }
             else {

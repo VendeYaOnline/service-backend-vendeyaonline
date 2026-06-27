@@ -10,14 +10,12 @@ const users_route_1 = __importDefault(require("./routes/users.route"));
 const suscription_route_1 = __importDefault(require("./routes/suscription.route"));
 const mercado_route_1 = __importDefault(require("./routes/mercado.route"));
 const form_route_1 = __importDefault(require("./routes/form.route"));
-const middlewares_1 = require("./middlewares");
 const app = (0, express_1.default)();
 dotenv_1.default.config();
 //VARS
 app.set("port", process.env.PORT || 5000);
 //MIDLEWARES
-app.use((0, cors_1.default)(middlewares_1.corsOptions));
-app.options("*", (0, cors_1.default)(middlewares_1.corsOptions));
+app.use((0, cors_1.default)({ origin: "*" }));
 app.use(express_1.default.json());
 //ROUTES
 app.use("/api", users_route_1.default);

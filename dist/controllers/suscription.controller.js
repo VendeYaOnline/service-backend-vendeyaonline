@@ -427,6 +427,7 @@ const createActiveSubscriptionsPause = (req, res) => __awaiter(void 0, void 0, v
 });
 exports.createActiveSubscriptionsPause = createActiveSubscriptionsPause;
 const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d, _e;
     const { id } = req.params;
     if (!id || id === "undefined") {
         res.status(400).json({ error: "ID is missing" });
@@ -441,15 +442,35 @@ const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function*
             const { dataValues } = user;
             if (dataValues.Subscriptions.length &&
                 !dataValues.CanceledSubscriptions.length) {
+                const subscriptionData = dataValues.Subscriptions[0].dataValues;
+                let preapproval_id = null;
+                try {
+                    const searchResponse = yield axios_1.default.get(`https://api.mercadopago.com/preapproval/search?payer_email=${dataValues.email}`, {
+                        headers: {
+                            Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+                            "Content-Type": "application/json",
+                        },
+                    });
+                    const results = (_b = (_a = searchResponse.data) === null || _a === void 0 ? void 0 : _a.results) !== null && _b !== void 0 ? _b : [];
+                    const authorized = results.find((r) => r.status === "authorized");
+                    if (authorized) {
+                        preapproval_id = authorized.id;
+                    }
+                }
+                catch (error) {
+                    console.error("Error al buscar preapproval en MercadoPago:", (_e = (_d = (_c = error === null || error === void 0 ? void 0 : error.response) === null || _c === void 0 ? void 0 : _c.data) !== null && _d !== void 0 ? _d : error === null || error === void 0 ? void 0 : error.message) !== null && _e !== void 0 ? _e : error);
+                }
                 res.status(200).json({
-                    subscription: dataValues.Subscriptions[0].dataValues,
+                    subscription: Object.assign(Object.assign({}, subscriptionData), { email: dataValues.email, date_limit: "", preapproval_id }),
+                    preapproval: false,
                 });
                 return;
             }
             else if (dataValues.CanceledSubscriptions.length &&
                 !dataValues.Subscriptions.length) {
                 res.status(200).json({
-                    subscription: dataValues.CanceledSubscriptions[0].dataValues,
+                    subscription: Object.assign(Object.assign({}, dataValues.CanceledSubscriptions[0].dataValues), { email: dataValues.email }),
+                    preapproval: false,
                 });
                 return;
             }
