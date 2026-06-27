@@ -96,6 +96,8 @@ export const updatePaymentMethod = async (req: Request, res: Response) => {
 export const webhook = async (req: Request, res: Response) => {
   try {
     const { action, type, data } = req.body;
+    console.log("[WEBHOOK] Body recibido:", JSON.stringify(req.body, null, 2));
+    console.log(`[WEBHOOK] type="${type}" action="${action}" data.id="${data?.id}"`);
     if (type === "subscription_authorized_payment" && action === "created") {
       // Paso 1: Consultar la API de Mercado Pago
       const paymentId = data.id;
@@ -111,23 +113,18 @@ export const webhook = async (req: Request, res: Response) => {
 
       const paymentData = mercadopagoResponse.data;
       const subscriptionId = paymentData.preapproval_id;
-      await axios.put(
-        `https://api.mercadopago.com/preapproval/${subscriptionId}`,
-        {
-          status: "paused",
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
 
       // Paso 2: Extraer el external_reference como ID del usuario
+      console.log("[WEBHOOK] paymentData:", JSON.stringify(paymentData, null, 2));
+      if (!paymentData.external_reference) {
+        console.error("[WEBHOOK] external_reference no disponible en el pago autorizado", paymentId);
+        res.sendStatus(200);
+        return;
+      }
       const resultExternalReference = paymentData.external_reference.split("-");
       const clientId = resultExternalReference[0];
       const quantityProducts = resultExternalReference[1];
+      console.log(`[WEBHOOK] clientId="${clientId}" quantityProducts="${quantityProducts}"`);
 
       // Paso 3: Validar el usuario en la base de datos
       const user = await User.findByPk(clientId, {
@@ -159,26 +156,52 @@ export const webhook = async (req: Request, res: Response) => {
         subscriptionId: subscriptionId,
       };
 
-      await axios.post(
-        "https://app-email-production.up.railway.app/subscription-confirmed",
-        {
-          to: dataValues.email,
-          client: dataValues.username,
-          plan: getSubscriptionType(paymentData.reason),
-          price: Math.round(paymentData.transaction_amount),
-          date: formatDate(paymentData.date_created),
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
+      console.log("[WEBHOOK] Creando suscripción:", JSON.stringify(subscriptionData, null, 2));
       await Subscription.create(subscriptionData);
+      console.log("[WEBHOOK] Suscripción creada exitosamente en BD");
       await PreapprovaldSubscription.destroy({
         where: { client: clientId },
       });
+
+      // Pausar la suscripción en MP después de guardar en BD
+      if (subscriptionId) {
+        try {
+          await axios.put(
+            `https://api.mercadopago.com/preapproval/${subscriptionId}`,
+            { status: "paused" },
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+        } catch (pauseError) {
+          console.error("Error al pausar suscripción en MP:", pauseError);
+        }
+      }
+
+      // Enviar email de confirmación (no bloquea si falla)
+      try {
+        await axios.post(
+          "https://app-email-production.up.railway.app/subscription-confirmed",
+          {
+            to: dataValues.email,
+            client: dataValues.username,
+            plan: getSubscriptionType(paymentData.reason),
+            price: Math.round(paymentData.transaction_amount),
+            date: formatDate(paymentData.date_created),
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      } catch (emailError) {
+        console.error("Error al enviar email de confirmación:", emailError);
+      }
+
       res.sendStatus(200);
       return;
     } else if (type === "payment" && action === "payment.created") {
@@ -200,8 +223,8 @@ export const webhook = async (req: Request, res: Response) => {
       res.sendStatus(200);
       return;
     }
-  } catch (error) {
-    console.error("Error procesando la notificación:", error);
+  } catch (error: any) {
+    console.error("[WEBHOOK] Error procesando la notificación:", error?.response?.data ?? error?.message ?? error);
     res.sendStatus(500);
   }
 };
