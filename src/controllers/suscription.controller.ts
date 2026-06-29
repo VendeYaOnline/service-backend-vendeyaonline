@@ -450,37 +450,14 @@ export const getSuscription = async (req: Request, res: Response) => {
         !dataValues.CanceledSubscriptions.length
       ) {
         const subscriptionData = dataValues.Subscriptions[0].dataValues;
-        let preapproval_id: string | null = null;
-        try {
-          const searchResponse = await axios.get(
-            `https://api.mercadopago.com/preapproval/search?payer_email=${dataValues.email}`,
-            {
-              headers: {
-                Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-                "Content-Type": "application/json",
-              },
-            },
-          );
-          const results: any[] = searchResponse.data?.results ?? [];
-          const authorized = results.find(
-            (r: any) => r.status === "authorized",
-          );
-          if (authorized) {
-            preapproval_id = authorized.id;
-          }
-        } catch (error: any) {
-          console.error(
-            "Error al buscar preapproval en MercadoPago:",
-            error?.response?.data ?? error?.message ?? error,
-          );
-        }
-
+        // El preapproval id se persiste en subscriptionId al crear la suscripción,
+        // así evitamos una consulta en vivo a MercadoPago en cada lectura.
         res.status(200).json({
           subscription: {
             ...subscriptionData,
             email: dataValues.email,
             date_limit: "",
-            preapproval_id,
+            preapproval_id: subscriptionData.subscriptionId,
           },
           preapproval: false,
         });

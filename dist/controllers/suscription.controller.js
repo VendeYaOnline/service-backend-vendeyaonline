@@ -427,7 +427,6 @@ const createActiveSubscriptionsPause = (req, res) => __awaiter(void 0, void 0, v
 });
 exports.createActiveSubscriptionsPause = createActiveSubscriptionsPause;
 const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d, _e;
     const { id } = req.params;
     if (!id || id === "undefined") {
         res.status(400).json({ error: "ID is missing" });
@@ -443,25 +442,10 @@ const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function*
             if (dataValues.Subscriptions.length &&
                 !dataValues.CanceledSubscriptions.length) {
                 const subscriptionData = dataValues.Subscriptions[0].dataValues;
-                let preapproval_id = null;
-                try {
-                    const searchResponse = yield axios_1.default.get(`https://api.mercadopago.com/preapproval/search?payer_email=${dataValues.email}`, {
-                        headers: {
-                            Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-                            "Content-Type": "application/json",
-                        },
-                    });
-                    const results = (_b = (_a = searchResponse.data) === null || _a === void 0 ? void 0 : _a.results) !== null && _b !== void 0 ? _b : [];
-                    const authorized = results.find((r) => r.status === "authorized");
-                    if (authorized) {
-                        preapproval_id = authorized.id;
-                    }
-                }
-                catch (error) {
-                    console.error("Error al buscar preapproval en MercadoPago:", (_e = (_d = (_c = error === null || error === void 0 ? void 0 : error.response) === null || _c === void 0 ? void 0 : _c.data) !== null && _d !== void 0 ? _d : error === null || error === void 0 ? void 0 : error.message) !== null && _e !== void 0 ? _e : error);
-                }
+                // El preapproval id se persiste en subscriptionId al crear la suscripción,
+                // así evitamos una consulta en vivo a MercadoPago en cada lectura.
                 res.status(200).json({
-                    subscription: Object.assign(Object.assign({}, subscriptionData), { email: dataValues.email, date_limit: "", preapproval_id }),
+                    subscription: Object.assign(Object.assign({}, subscriptionData), { email: dataValues.email, date_limit: "", preapproval_id: subscriptionData.subscriptionId }),
                     preapproval: false,
                 });
                 return;

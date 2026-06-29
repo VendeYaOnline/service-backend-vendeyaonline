@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { MercadoPagoConfig, PreApproval } from "mercadopago";
 import axios from "axios";
+import crypto from "crypto";
 import User from "../models/users";
 import Subscription from "../models/suscriptions";
 import { SuscriptionI, UserI } from "../interfaces";
@@ -46,15 +47,18 @@ export const createSubscription = async (req: Request, res: Response) => {
 };
 
 export const updatePaymentMethod = async (req: Request, res: Response) => {
-  const { id } = req.body;
+  const { preapproval_id } = req.body;
 
-  if (!id) {
+  if (!preapproval_id) {
     res.status(400).json({ message: "No se pudo obtener la URL de actualización de pago" });
     return;
   }
 
   try {
-    const subscription = await Subscription.findByPk(id);
+    // Buscamos por subscriptionId (== preapproval id) para conservar el guard de estado.
+    const subscription = await Subscription.findOne({
+      where: { subscriptionId: preapproval_id },
+    });
 
     if (!subscription) {
       res.status(404).json({ message: "No se pudo obtener la URL de actualización de pago" });
@@ -69,7 +73,7 @@ export const updatePaymentMethod = async (req: Request, res: Response) => {
     }
 
     const mpResponse = await axios.get(
-      `https://api.mercadopago.com/preapproval/${dataValues.subscriptionId}`,
+      `https://api.mercadopago.com/preapproval/${preapproval_id}`,
       {
         headers: {
           Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
@@ -94,13 +98,205 @@ export const updatePaymentMethod = async (req: Request, res: Response) => {
   }
 };
 
+// Valida la firma del webhook de MercadoPago (header x-signature).
+// Si MP_WEBHOOK_SECRET no está configurado, no bloquea (fail-open) pero avisa.
+const isValidSignature = (req: Request): boolean => {
+  const secret = process.env.MP_WEBHOOK_SECRET;
+  if (!secret) {
+    console.warn(
+      "[WEBHOOK] MP_WEBHOOK_SECRET no configurado; se omite la validación de firma."
+    );
+    return true;
+  }
+
+  const signature = req.headers["x-signature"] as string | undefined;
+  const requestId = req.headers["x-request-id"] as string | undefined;
+  if (!signature) {
+    console.error("[WEBHOOK] Falta el header x-signature");
+    return false;
+  }
+
+  const parts = signature.split(",").reduce<Record<string, string>>(
+    (acc, part) => {
+      const [key, value] = part.split("=");
+      if (key && value) acc[key.trim()] = value.trim();
+      return acc;
+    },
+    {}
+  );
+
+  const ts = parts["ts"];
+  const v1 = parts["v1"];
+  if (!ts || !v1) {
+    console.error("[WEBHOOK] x-signature mal formado");
+    return false;
+  }
+
+  const dataId =
+    (req.query["data.id"] as string) ?? req.body?.data?.id ?? "";
+
+  // Plantilla del manifiesto según la documentación de MercadoPago.
+  let manifest = "";
+  if (dataId) manifest += `id:${String(dataId).toLowerCase()};`;
+  if (requestId) manifest += `request-id:${requestId};`;
+  manifest += `ts:${ts};`;
+
+  const hmac = crypto
+    .createHmac("sha256", secret)
+    .update(manifest)
+    .digest("hex");
+
+  try {
+    const valid = crypto.timingSafeEqual(
+      Buffer.from(hmac),
+      Buffer.from(v1)
+    );
+    if (!valid) console.error("[WEBHOOK] Firma inválida");
+    return valid;
+  } catch {
+    console.error("[WEBHOOK] Error comparando la firma");
+    return false;
+  }
+};
+
+// Crea la suscripción real en BD a partir de los datos de MercadoPago.
+// Idempotente: si el usuario ya tiene una suscripción no hace nada, por lo que
+// puede dispararse tanto desde "subscription_preapproval" como desde
+// "subscription_authorized_payment" sin duplicar.
+const activateSubscription = async (params: {
+  clientId: string;
+  quantityProducts: string;
+  price: number;
+  reason: string;
+  dateCreated: string;
+  subscriptionId: string;
+}) => {
+  const { clientId, quantityProducts, price, reason, dateCreated, subscriptionId } =
+    params;
+
+  const user = await User.findByPk(clientId, { include: [Subscription] });
+  if (!user) {
+    console.log("[WEBHOOK] El cliente no existe", clientId);
+    return;
+  }
+
+  const { dataValues } = user as { dataValues: UserI };
+
+  if (dataValues.Subscriptions.length) {
+    console.log("[WEBHOOK] El usuario ya tiene una suscripción, se omite (idempotencia)");
+    return;
+  }
+
+  const subscriptionData = {
+    client: clientId,
+    price: Math.round(price),
+    quantityProducts: quantityProducts,
+    type: getSubscriptionType(reason),
+    date: formatDate(dateCreated),
+    subscriptionId: subscriptionId,
+  };
+
+  console.log("[WEBHOOK] Creando suscripción:", JSON.stringify(subscriptionData, null, 2));
+  await Subscription.create(subscriptionData);
+  console.log("[WEBHOOK] Suscripción creada exitosamente en BD");
+
+  await PreapprovaldSubscription.destroy({ where: { client: clientId } });
+
+  // Pausar la suscripción en MP después de guardar en BD (regla de negocio).
+  if (subscriptionId) {
+    try {
+      await axios.put(
+        `https://api.mercadopago.com/preapproval/${subscriptionId}`,
+        { status: "paused" },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    } catch (pauseError) {
+      console.error("Error al pausar suscripción en MP:", pauseError);
+    }
+  }
+
+  // Enviar email de confirmación (no bloquea si falla).
+  try {
+    await axios.post(
+      "https://app-email-production.up.railway.app/subscription-confirmed",
+      {
+        to: dataValues.email,
+        client: dataValues.username,
+        plan: getSubscriptionType(reason),
+        price: Math.round(price),
+        date: formatDate(dateCreated),
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  } catch (emailError) {
+    console.error("Error al enviar email de confirmación:", emailError);
+  }
+};
+
 export const webhook = async (req: Request, res: Response) => {
   try {
+    if (!isValidSignature(req)) {
+      res.sendStatus(401);
+      return;
+    }
+
     const { action, type, data } = req.body;
     console.log("[WEBHOOK] Body recibido:", JSON.stringify(req.body, null, 2));
     console.log(`[WEBHOOK] type="${type}" action="${action}" data.id="${data?.id}"`);
-    if (type === "subscription_authorized_payment" && action === "created") {
-      // Paso 1: Consultar la API de Mercado Pago
+    // Señal MÁS RÁPIDA: el preapproval pasa a "authorized" en cuanto el usuario
+    // confirma la suscripción, mucho antes que el primer cobro autorizado.
+    if (type === "subscription_preapproval") {
+      const preapprovalId = data.id;
+      const mpResponse = await axios.get(
+        `https://api.mercadopago.com/preapproval/${preapprovalId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const preapproval = mpResponse.data;
+      console.log("[WEBHOOK] preapproval:", JSON.stringify(preapproval, null, 2));
+
+      if (preapproval.status !== "authorized") {
+        console.log(`[WEBHOOK] preapproval ${preapprovalId} con status "${preapproval.status}", ignorando.`);
+        res.sendStatus(200);
+        return;
+      }
+
+      if (!preapproval.external_reference) {
+        console.error("[WEBHOOK] external_reference no disponible en el preapproval", preapprovalId);
+        res.sendStatus(200);
+        return;
+      }
+
+      const [clientId, quantityProducts] = preapproval.external_reference.split("-");
+      console.log(`[WEBHOOK] clientId="${clientId}" quantityProducts="${quantityProducts}"`);
+
+      await activateSubscription({
+        clientId,
+        quantityProducts,
+        price: preapproval.auto_recurring?.transaction_amount,
+        reason: preapproval.reason,
+        dateCreated: preapproval.date_created,
+        subscriptionId: preapprovalId,
+      });
+
+      res.sendStatus(200);
+      return;
+    } else if (type === "subscription_authorized_payment" && action === "created") {
+      // Respaldo (idempotente) del primer cobro autorizado.
       const paymentId = data.id;
       const mercadopagoResponse = await axios.get(
         `https://api.mercadopago.com/authorized_payments/${paymentId}`,
@@ -115,93 +311,24 @@ export const webhook = async (req: Request, res: Response) => {
       const paymentData = mercadopagoResponse.data;
       const subscriptionId = paymentData.preapproval_id;
 
-      // Paso 2: Extraer el external_reference como ID del usuario
       console.log("[WEBHOOK] paymentData:", JSON.stringify(paymentData, null, 2));
       if (!paymentData.external_reference) {
         console.error("[WEBHOOK] external_reference no disponible en el pago autorizado", paymentId);
         res.sendStatus(200);
         return;
       }
-      const resultExternalReference = paymentData.external_reference.split("-");
-      const clientId = resultExternalReference[0];
-      const quantityProducts = resultExternalReference[1];
+
+      const [clientId, quantityProducts] = paymentData.external_reference.split("-");
       console.log(`[WEBHOOK] clientId="${clientId}" quantityProducts="${quantityProducts}"`);
 
-      // Paso 3: Validar el usuario en la base de datos
-      const user = await User.findByPk(clientId, {
-        include: [Subscription],
+      await activateSubscription({
+        clientId,
+        quantityProducts,
+        price: paymentData.transaction_amount,
+        reason: paymentData.reason,
+        dateCreated: paymentData.date_created,
+        subscriptionId,
       });
-
-      if (!user) {
-        console.log("El cliente no existe");
-        res.sendStatus(200);
-        return;
-      }
-
-      const { dataValues } = user as { dataValues: UserI };
-
-      // Paso 4: Verificar si ya tiene una suscripción activa
-      if (dataValues.Subscriptions.length) {
-        console.log("El usuario ya tiene una suscripción activa");
-        res.sendStatus(200);
-        return;
-      }
-
-      // Paso 5: Crear la suscripción con los datos de Mercado Pago
-      const subscriptionData = {
-        client: clientId,
-        price: Math.round(paymentData.transaction_amount),
-        quantityProducts: quantityProducts,
-        type: getSubscriptionType(paymentData.reason),
-        date: formatDate(paymentData.date_created),
-        subscriptionId: subscriptionId,
-      };
-
-      console.log("[WEBHOOK] Creando suscripción:", JSON.stringify(subscriptionData, null, 2));
-      await Subscription.create(subscriptionData);
-      console.log("[WEBHOOK] Suscripción creada exitosamente en BD");
-      await PreapprovaldSubscription.destroy({
-        where: { client: clientId },
-      });
-
-      // Pausar la suscripción en MP después de guardar en BD
-      if (subscriptionId) {
-        try {
-          await axios.put(
-            `https://api.mercadopago.com/preapproval/${subscriptionId}`,
-            { status: "paused" },
-            {
-              headers: {
-                Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-        } catch (pauseError) {
-          console.error("Error al pausar suscripción en MP:", pauseError);
-        }
-      }
-
-      // Enviar email de confirmación (no bloquea si falla)
-      try {
-        await axios.post(
-          "https://app-email-production.up.railway.app/subscription-confirmed",
-          {
-            to: dataValues.email,
-            client: dataValues.username,
-            plan: getSubscriptionType(paymentData.reason),
-            price: Math.round(paymentData.transaction_amount),
-            date: formatDate(paymentData.date_created),
-          },
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-      } catch (emailError) {
-        console.error("Error al enviar email de confirmación:", emailError);
-      }
 
       res.sendStatus(200);
       return;
