@@ -98,6 +98,92 @@ export const updatePaymentMethod = async (req: Request, res: Response) => {
   }
 };
 
+// Devuelve el medio de pago vigente de la suscripción del usuario.
+// Busca el pago más reciente asociado por external_reference y extrae marca,
+// tipo y últimos 4 dígitos. Útil para que el cliente sepa qué tarjeta tiene
+// antes de actualizarla y no repita la misma.
+export const getPaymentMethod = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  if (!id || id === "undefined") {
+    res.status(400).json({ message: "ID is missing" });
+    return;
+  }
+
+  try {
+    const user = await User.findByPk(id, { include: [Subscription] });
+    if (!user) {
+      res.status(404).json({ message: "The client does not exist" });
+      return;
+    }
+
+    const { dataValues } = user as { dataValues: UserI };
+    if (!dataValues.Subscriptions.length) {
+      res.status(200).json({ paymentMethod: null });
+      return;
+    }
+
+    const subscription = dataValues.Subscriptions[0].dataValues;
+    const mpHeaders = {
+      Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    };
+
+    // El external_reference del preapproval es inmutable; lo preferimos sobre
+    // reconstruirlo desde quantityProducts (que cambia si el cliente actualiza el plan).
+    let externalReference = `${subscription.client}-${subscription.quantityProducts}`;
+    try {
+      const preapprovalResponse = await axios.get(
+        `https://api.mercadopago.com/preapproval/${subscription.subscriptionId}`,
+        { headers: mpHeaders }
+      );
+      if (preapprovalResponse.data?.external_reference) {
+        externalReference = preapprovalResponse.data.external_reference;
+      }
+    } catch (preapprovalError: any) {
+      console.error(
+        "Error al obtener el preapproval, se usa external_reference reconstruido:",
+        preapprovalError?.response?.data ?? preapprovalError?.message ?? preapprovalError
+      );
+    }
+
+    const searchResponse = await axios.get(
+      `https://api.mercadopago.com/v1/payments/search`,
+      {
+        params: {
+          external_reference: externalReference,
+          sort: "date_created",
+          criteria: "desc",
+          limit: 1,
+        },
+        headers: mpHeaders,
+      }
+    );
+
+    const payment = searchResponse.data?.results?.[0];
+    if (!payment) {
+      res.status(200).json({ paymentMethod: null });
+      return;
+    }
+
+    res.status(200).json({
+      paymentMethod: {
+        brand: payment.payment_method_id ?? null, // visa, master, account_money...
+        type: payment.payment_type_id ?? null, // credit_card, debit_card, account_money...
+        lastFourDigits: payment.card?.last_four_digits ?? null,
+      },
+    });
+    return;
+  } catch (error: any) {
+    console.error(
+      "Error al obtener el medio de pago:",
+      error?.response?.data ?? error?.message ?? error
+    );
+    res.status(500).json({ message: "No se pudo obtener el medio de pago" });
+    return;
+  }
+};
+
 // Valida la firma del webhook de MercadoPago (header x-signature).
 // Si MP_WEBHOOK_SECRET no está configurado, no bloquea (fail-open) pero avisa.
 const isValidSignature = (req: Request): boolean => {

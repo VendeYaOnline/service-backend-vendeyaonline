@@ -6,5 +6,6 @@ const mercado_controller_1 = require("../controllers/mercado.controller");
 const route = (0, express_1.Router)();
 route.post("/generate_subscription", [middlewares_1.validateToken, mercado_controller_1.createSubscription]);
 route.post("/update-payment-method", [middlewares_1.validateToken, mercado_controller_1.updatePaymentMethod]);
+route.get("/payment-method/:id", [middlewares_1.validateToken, mercado_controller_1.getPaymentMethod]);
 route.post("/subscription_notification", [mercado_controller_1.webhook]);
 exports.default = route;
