@@ -13,6 +13,7 @@ export interface SuscriptionI {
   id?: number;
   price: number;
   type: string;
+  quantityProducts: number;
   numberProductsCreated: number;
   subscriptionId: string;
   status: string;
