@@ -1,9 +1,15 @@
 export const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0"); // +1 porque los meses son 0-based
-  const year = date.getUTCFullYear();
-  return `${day}/${month}/${year}`;
+  // Formatear en la zona horaria de Colombia (UTC-5) para evitar el desfase de
+  // un día: con getUTCDate() un pago hecho de noche caía al día siguiente.
+  const parts = new Intl.DateTimeFormat("es-CO", {
+    timeZone: "America/Bogota",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)!.value;
+  return `${get("day")}/${get("month")}/${get("year")}`;
 };
 
 export const getSubscriptionType = (reason: string): string => {

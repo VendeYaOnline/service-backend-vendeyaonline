@@ -8,6 +8,20 @@ import { SuscriptionI, UserI } from "../interfaces";
 import { formatDate, getSubscriptionType } from "../utils";
 import PreapprovaldSubscription from "../models/preapprovald_subscriptions";
 
+// MercadoPago devuelve el init_point con "&activation=true", pero su checkout de
+// suscripciones (mp-subscriptions-checkout-fe) responde INVALID_PARAMS ("Esta
+// página no existe") cuando recibe ese parámetro. Sin él, la URL carga bien.
+const sanitizeInitPoint = (initPoint?: string | null): string | undefined => {
+  if (!initPoint) return undefined;
+  try {
+    const url = new URL(initPoint);
+    url.searchParams.delete("activation");
+    return url.toString();
+  } catch {
+    return initPoint.replace(/[?&]activation=true/, "");
+  }
+};
+
 export const createSubscription = async (req: Request, res: Response) => {
   const client = new MercadoPagoConfig({
     accessToken: process.env.ACCESS_TOKEN!,
@@ -39,7 +53,7 @@ export const createSubscription = async (req: Request, res: Response) => {
         { where: { client: user_id } }
       );
     }
-    res.status(201).json({ subscription_url: init_point });
+    res.status(201).json({ subscription_url: sanitizeInitPoint(init_point) });
     return;
   } catch (error: any) {
     return res.status(400).json({ message: error.message });
@@ -89,7 +103,7 @@ export const updatePaymentMethod = async (req: Request, res: Response) => {
       return;
     }
 
-    res.status(200).json({ url: init_point });
+    res.status(200).json({ url: sanitizeInitPoint(init_point) });
     return;
   } catch (error: any) {
     console.error("Error al obtener URL de actualización de pago:", error);
