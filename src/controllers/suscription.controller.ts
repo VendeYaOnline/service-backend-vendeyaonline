@@ -10,6 +10,7 @@ import CanceledSubscription from "../models/canceled_subscriptions";
 import PreapprovaldSubscription from "../models/preapprovald_subscriptions";
 import { planSchemaUpdated } from "../schemas/planSchema";
 import axios from "axios";
+import jwt from "jsonwebtoken";
 
 export const getAllSuscription = async (_req: Request, res: Response) => {
   try {
@@ -153,6 +154,25 @@ export const updatedSuscription = async (req: Request, res: Response) => {
   }
 };
 
+const FIXED_PLANS: Record<string, { products: number; price: number }> = {
+  Emprendedor: { products: 50, price: 50000 },
+  Crecimiento: { products: 100, price: 80000 },
+};
+
+// Precio oficial de un plan; null si type/quantityProducts no corresponden a un plan válido.
+const getPlanPrice = (type: string, quantityProducts: number) => {
+  const fixed = FIXED_PLANS[type];
+  if (fixed) return fixed.products === quantityProducts ? fixed.price : null;
+  if (type === "Corporativo") {
+    const valid =
+      quantityProducts >= 150 &&
+      quantityProducts <= 1000 &&
+      (quantityProducts - 150) % 50 === 0;
+    return valid ? 130000 + (quantityProducts - 150) * 1000 : null;
+  }
+  return null;
+};
+
 export const updatedPlan = async (req: Request, res: Response) => {
   const { error } = planSchemaUpdated.validate(req.body);
   if (error) {
@@ -168,7 +188,19 @@ export const updatedPlan = async (req: Request, res: Response) => {
     }
 
     const { dataValues } = user as { dataValues: UserI };
-    const subscription = dataValues.Subscriptions[0].dataValues;
+
+    // El cliente solo puede cambiar su propio plan.
+    const token = req.header("Authorization")?.split(" ")[1];
+    const payload = token ? jwt.decode(token) : null;
+    if (
+      !payload ||
+      typeof payload === "string" ||
+      payload.email !== dataValues.email
+    ) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const subscription = dataValues.Subscriptions[0]?.dataValues;
 
     if (!subscription) {
       return res.status(404).json({ message: "No subscription found" });
@@ -176,57 +208,57 @@ export const updatedPlan = async (req: Request, res: Response) => {
 
     const { id, numberProductsCreated, status, subscriptionId } = subscription;
 
-    if (numberProductsCreated >= data.quantityProducts) {
+    if (status !== "active" && status !== "pause") {
+      return res
+        .status(400)
+        .json({ message: "It is not possible to update the plan" });
+    }
+
+    // El precio lo define el servidor, no el cliente.
+    const price = getPlanPrice(data.type, data.quantityProducts);
+    if (price === null || price !== data.price) {
+      return res.status(400).json({ message: "Invalid plan or price" });
+    }
+
+    if (numberProductsCreated > data.quantityProducts) {
       return res.status(400).json({ message: "Error updating plan" });
     }
 
-    await Subscription.update(data, { where: { id } });
+    const preapprovalUrl = `https://api.mercadopago.com/preapproval/${subscriptionId}`;
+    const headers = {
+      Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    };
+    const amountBody = {
+      reason: "Plan " + data.type,
+      auto_recurring: {
+        frequency: 1,
+        frequency_type: "months",
+        transaction_amount: price,
+        currency_id: "COP",
+      },
+    };
 
-    if (status === "active" || status === "pause") {
-      const preapprovalUrl = `https://api.mercadopago.com/preapproval/${subscriptionId}`;
-      const headers = {
-        Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-      };
-
-      if (status === "pause") {
-        await axios.put(preapprovalUrl, { status: "authorized" }, { headers });
-        await axios.put(
-          preapprovalUrl,
-          {
-            reason: "Plan " + data.type,
-            auto_recurring: {
-              frequency: 1,
-              frequency_type: "months",
-              transaction_amount: data.price,
-              currency_id: "COP",
-            },
-          },
-          { headers },
-        );
+    // Primero Mercado Pago; la BD solo se actualiza si este paso funciona.
+    if (status === "pause") {
+      // Mercado Pago solo permite cambiar el monto en estado authorized.
+      await axios.put(preapprovalUrl, { status: "authorized" }, { headers });
+      try {
+        await axios.put(preapprovalUrl, amountBody, { headers });
+      } finally {
+        // Se vuelve a pausar aunque falle el cambio de monto.
         await axios.put(preapprovalUrl, { status: "paused" }, { headers });
-      } else {
-        await axios.put(
-          preapprovalUrl,
-          {
-            reason: "Plan " + data.type,
-            auto_recurring: {
-              frequency: 1,
-              frequency_type: "months",
-              transaction_amount: data.price,
-              currency_id: "COP",
-            },
-          },
-          { headers },
-        );
       }
-
-      return res.status(200).json({ message: "Updated Subscription" });
+    } else {
+      await axios.put(preapprovalUrl, amountBody, { headers });
     }
 
-    return res
-      .status(400)
-      .json({ message: "It is not possible to update the plan" });
+    await Subscription.update(
+      { type: data.type, price, quantityProducts: data.quantityProducts },
+      { where: { id } },
+    );
+
+    return res.status(200).json({ message: "Updated Subscription" });
   } catch (error) {
     return res.status(500).json({ error: "Error updating" });
   }
