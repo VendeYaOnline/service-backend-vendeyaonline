@@ -119,15 +119,6 @@ export const createSuscription = async (req: Request, res: Response) => {
   }
 };
 
-// Solo el administrador (ADMIN_EMAIL) puede cambiar el monto que se cobra en Mercado Pago.
-const isAdminRequest = (req: Request) => {
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const token = req.header("Authorization")?.split(" ")[1];
-  const payload = token ? jwt.decode(token) : null;
-  if (!adminEmail || !payload || typeof payload === "string") return false;
-  return String(payload.email ?? "").toLowerCase() === adminEmail;
-};
-
 // Cambia el monto mensual del preapproval en Mercado Pago. MP solo permite
 // cambiarlo en estado "authorized", así que se autoriza temporalmente y se
 // deja en `finalStatus` aunque falle el cambio de monto.
@@ -193,15 +184,9 @@ export const updatedSuscription = async (req: Request, res: Response) => {
 
       const priceChanged =
         data.price !== undefined && Math.round(data.price) !== stored.price;
-      if (priceChanged) {
-        if (!isAdminRequest(req)) {
-          res.status(403).json({ message: "Forbidden" });
-          return;
-        }
-        if (!(data.price > 0)) {
-          res.status(400).json({ error: "Invalid price" });
-          return;
-        }
+      if (priceChanged && !(data.price > 0)) {
+        res.status(400).json({ error: "Invalid price" });
+        return;
       }
 
       // Primero Mercado Pago; la BD solo se actualiza si este paso funciona.

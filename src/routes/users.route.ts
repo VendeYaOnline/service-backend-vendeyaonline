@@ -11,19 +11,20 @@ import {
   verifyToken,
   changePassword,
 } from "../controllers/users.controller";
-import { validateToken } from "../middlewares";
+import { adminLoginOnly, validateAdmin, validateToken } from "../middlewares";
 
 const route = Router();
 
 route.get("/verify-token", [validateToken, verifyToken]);
-route.get("/get-users", [validateToken, getAllUsers]);
+route.get("/get-users", [validateAdmin, getAllUsers]);
 route.post("/change-password/:email", [changePassword]);
 route.get("/get-user_byEmail/:email", getUserByEmail);
 route.post("/create-user", createUser);
 route.post("/login-user", loginUser);
+route.post("/login-admin", [adminLoginOnly, loginUser]);
 route.put("/update-password", [validateToken, updatedPassword]);
 route.put("/update-password_email", updatedPasswordEmail);
 route.put("/update-user/:id", [validateToken, updatedUser]);
-route.delete("/delete-user/:id", [validateToken, deleteUser]);
+route.delete("/delete-user/:id", [validateAdmin, deleteUser]);
 
 export default route;

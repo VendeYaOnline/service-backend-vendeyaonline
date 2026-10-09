@@ -17,20 +17,20 @@ import {
   updatedPlan,
   getSuscriptionByUser,
 } from "../controllers/suscription.controller";
-import { validateToken } from "../middlewares";
+import { validateAdmin, validateToken } from "../middlewares";
 
 const route = Router();
 
-route.get("/get-suscriptions", [validateToken, getAllSuscription]);
+route.get("/get-suscriptions", [validateAdmin, getAllSuscription]);
 route.get("/get-suscription-user/:id", [validateToken, getSuscriptionByUser]);
 
-route.get("/get-cancellations", [validateToken, getAllCancellations]);
+route.get("/get-cancellations", [validateAdmin, getAllCancellations]);
 route.get("/get-suscription/:id", [validateToken, getSuscription]);
 route.get("/get-canceled_suscription/:id", [
   validateToken,
   getCanceledSuscription,
 ]);
-route.post("/create-suscription", [validateToken, createSuscription]);
+route.post("/create-suscription", [validateAdmin, createSuscription]);
 route.post("/create-canceled_suscription", [
   validateToken,
   createCanceledSubscriptions,
@@ -47,16 +47,16 @@ route.post("/create-active_suscription_pause", [
   validateToken,
   createActiveSubscriptionsPause,
 ]);
-route.put("/updated-suscription/:id", [validateToken, updatedSuscription]);
+route.put("/updated-suscription/:id", [validateAdmin, updatedSuscription]);
 route.put("/updated-cancellations/:id", [
-  validateToken,
+  validateAdmin,
   cancellationsSuscription,
 ]);
 route.put("/updated-plan", [validateToken, updatedPlan]);
 
-route.delete("/delete-suscription/:id", [validateToken, deleteSuscription]);
+route.delete("/delete-suscription/:id", [validateAdmin, deleteSuscription]);
 route.delete("/delete-canceled_suscription/:id", [
-  validateToken,
+  validateAdmin,
   deleteCanceledSuscription,
 ]);
 route.delete("/delete-preapprovald/:id", [deletePreapprovald]);
