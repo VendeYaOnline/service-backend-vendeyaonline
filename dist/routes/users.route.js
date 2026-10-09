@@ -13,6 +13,6 @@ route.post("/login-user", users_controller_1.loginUser);
 route.post("/login-admin", [middlewares_1.adminLoginOnly, users_controller_1.loginUser]);
 route.put("/update-password", [middlewares_1.validateToken, users_controller_1.updatedPassword]);
 route.put("/update-password_email", users_controller_1.updatedPasswordEmail);
-route.put("/update-user/:id", [middlewares_1.validateToken, users_controller_1.updatedUser]);
+route.put("/update-user/:id", [(0, middlewares_1.validateOwner)((req) => req.params.id), users_controller_1.updatedUser]);
 route.delete("/delete-user/:id", [middlewares_1.validateAdmin, users_controller_1.deleteUser]);
 exports.default = route;
