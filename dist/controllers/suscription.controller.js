@@ -20,6 +20,7 @@ const canceled_subscriptions_1 = __importDefault(require("../models/canceled_sub
 const preapprovald_subscriptions_1 = __importDefault(require("../models/preapprovald_subscriptions"));
 const planSchema_1 = require("../schemas/planSchema");
 const axios_1 = __importDefault(require("axios"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const getAllSuscription = (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const subscription = yield suscriptions_1.default.findAll();
@@ -134,7 +135,38 @@ const createSuscription = (req, res) => __awaiter(void 0, void 0, void 0, functi
     }
 });
 exports.createSuscription = createSuscription;
+// Cambia el monto mensual del preapproval en Mercado Pago. MP solo permite
+// cambiarlo en estado "authorized", así que se autoriza temporalmente y se
+// deja en `finalStatus` aunque falle el cambio de monto.
+const setPreapprovalAmount = (subscriptionId, type, price, finalStatus) => __awaiter(void 0, void 0, void 0, function* () {
+    const preapprovalUrl = `https://api.mercadopago.com/preapproval/${subscriptionId}`;
+    const headers = {
+        Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+    };
+    const { data: preapproval } = yield axios_1.default.get(preapprovalUrl, { headers });
+    if (preapproval.status !== "authorized") {
+        yield axios_1.default.put(preapprovalUrl, { status: "authorized" }, { headers });
+    }
+    try {
+        yield axios_1.default.put(preapprovalUrl, {
+            reason: "Plan " + type,
+            auto_recurring: {
+                frequency: 1,
+                frequency_type: "months",
+                transaction_amount: price,
+                currency_id: "COP",
+            },
+        }, { headers });
+    }
+    finally {
+        if (finalStatus === "paused") {
+            yield axios_1.default.put(preapprovalUrl, { status: "paused" }, { headers });
+        }
+    }
+});
 const updatedSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     const { error } = suscriptionSchema_1.suscriptionSchemaUpdated.validate(req.body);
     if (error) {
         res.status(400).json({ error: error.details[0].message });
@@ -148,22 +180,29 @@ const updatedSuscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
                 Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
                 "Content-Type": "application/json",
             };
-            const subscription = yield suscriptions_1.default.update(data, {
-                returning: true,
-                where: { id },
-            });
-            const { dataValues } = subscription[1][0];
-            const preapprovalUrl = `https://api.mercadopago.com/preapproval/${dataValues.subscriptionId}`;
-            if (data.status === "active") {
-                yield axios_1.default.put(preapprovalUrl, { status: "authorized" }, { headers });
-                res.status(200).json({ message: "Updated Subscription" });
+            const current = yield suscriptions_1.default.findByPk(id);
+            if (!current) {
+                res.status(404).json({ message: "Subscription not found" });
                 return;
+            }
+            const { dataValues: stored } = current;
+            const preapprovalUrl = `https://api.mercadopago.com/preapproval/${stored.subscriptionId}`;
+            const finalStatus = data.status === "active" ? "authorized" : "paused";
+            const priceChanged = data.price !== undefined && Math.round(data.price) !== stored.price;
+            if (priceChanged && !(data.price > 0)) {
+                res.status(400).json({ error: "Invalid price" });
+                return;
+            }
+            // Primero Mercado Pago; la BD solo se actualiza si este paso funciona.
+            if (priceChanged) {
+                yield setPreapprovalAmount(stored.subscriptionId, (_a = data.type) !== null && _a !== void 0 ? _a : stored.type, Math.round(data.price), finalStatus);
             }
             else {
-                yield axios_1.default.put(preapprovalUrl, { status: "paused" }, { headers });
-                res.status(200).json({ message: "Updated Subscription" });
-                return;
+                yield axios_1.default.put(preapprovalUrl, { status: finalStatus }, { headers });
             }
+            yield suscriptions_1.default.update(data, { where: { id } });
+            res.status(200).json({ message: "Updated Subscription" });
+            return;
         }
         catch (error) {
             res.status(500).json({ error: "Error updating" });
@@ -172,7 +211,25 @@ const updatedSuscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
     }
 });
 exports.updatedSuscription = updatedSuscription;
+const FIXED_PLANS = {
+    Emprendedor: { products: 50, price: 50000 },
+    Crecimiento: { products: 100, price: 80000 },
+};
+// Precio oficial de un plan; null si type/quantityProducts no corresponden a un plan válido.
+const getPlanPrice = (type, quantityProducts) => {
+    const fixed = FIXED_PLANS[type];
+    if (fixed)
+        return fixed.products === quantityProducts ? fixed.price : null;
+    if (type === "Corporativo") {
+        const valid = quantityProducts >= 150 &&
+            quantityProducts <= 1000 &&
+            (quantityProducts - 150) % 50 === 0;
+        return valid ? 130000 + (quantityProducts - 150) * 1000 : null;
+    }
+    return null;
+};
 const updatedPlan = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
     const { error } = planSchema_1.planSchemaUpdated.validate(req.body);
     if (error) {
         return res.status(400).json({ error: error.details[0].message });
@@ -184,50 +241,63 @@ const updatedPlan = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             return res.status(404).json({ message: "The client does not exist" });
         }
         const { dataValues } = user;
-        const subscription = dataValues.Subscriptions[0].dataValues;
+        // El cliente solo puede cambiar su propio plan.
+        const token = (_a = req.header("Authorization")) === null || _a === void 0 ? void 0 : _a.split(" ")[1];
+        const payload = token ? jsonwebtoken_1.default.decode(token) : null;
+        if (!payload ||
+            typeof payload === "string" ||
+            payload.email !== dataValues.email) {
+            return res.status(403).json({ message: "Forbidden" });
+        }
+        const subscription = (_b = dataValues.Subscriptions[0]) === null || _b === void 0 ? void 0 : _b.dataValues;
         if (!subscription) {
             return res.status(404).json({ message: "No subscription found" });
         }
         const { id, numberProductsCreated, status, subscriptionId } = subscription;
-        if (numberProductsCreated >= data.quantityProducts) {
+        if (status !== "active" && status !== "pause") {
+            return res
+                .status(400)
+                .json({ message: "It is not possible to update the plan" });
+        }
+        // El precio lo define el servidor, no el cliente.
+        const price = getPlanPrice(data.type, data.quantityProducts);
+        if (price === null || price !== data.price) {
+            return res.status(400).json({ message: "Invalid plan or price" });
+        }
+        if (numberProductsCreated > data.quantityProducts) {
             return res.status(400).json({ message: "Error updating plan" });
         }
-        yield suscriptions_1.default.update(data, { where: { id } });
-        if (status === "active" || status === "pause") {
-            const preapprovalUrl = `https://api.mercadopago.com/preapproval/${subscriptionId}`;
-            const headers = {
-                Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-                "Content-Type": "application/json",
-            };
-            if (status === "pause") {
-                yield axios_1.default.put(preapprovalUrl, { status: "authorized" }, { headers });
-                yield axios_1.default.put(preapprovalUrl, {
-                    reason: "Plan " + data.type,
-                    auto_recurring: {
-                        frequency: 1,
-                        frequency_type: "months",
-                        transaction_amount: data.price,
-                        currency_id: "COP",
-                    },
-                }, { headers });
+        const preapprovalUrl = `https://api.mercadopago.com/preapproval/${subscriptionId}`;
+        const headers = {
+            Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+            "Content-Type": "application/json",
+        };
+        const amountBody = {
+            reason: "Plan " + data.type,
+            auto_recurring: {
+                frequency: 1,
+                frequency_type: "months",
+                transaction_amount: price,
+                currency_id: "COP",
+            },
+        };
+        // Primero Mercado Pago; la BD solo se actualiza si este paso funciona.
+        if (status === "pause") {
+            // Mercado Pago solo permite cambiar el monto en estado authorized.
+            yield axios_1.default.put(preapprovalUrl, { status: "authorized" }, { headers });
+            try {
+                yield axios_1.default.put(preapprovalUrl, amountBody, { headers });
+            }
+            finally {
+                // Se vuelve a pausar aunque falle el cambio de monto.
                 yield axios_1.default.put(preapprovalUrl, { status: "paused" }, { headers });
             }
-            else {
-                yield axios_1.default.put(preapprovalUrl, {
-                    reason: "Plan " + data.type,
-                    auto_recurring: {
-                        frequency: 1,
-                        frequency_type: "months",
-                        transaction_amount: data.price,
-                        currency_id: "COP",
-                    },
-                }, { headers });
-            }
-            return res.status(200).json({ message: "Updated Subscription" });
         }
-        return res
-            .status(400)
-            .json({ message: "It is not possible to update the plan" });
+        else {
+            yield axios_1.default.put(preapprovalUrl, amountBody, { headers });
+        }
+        yield suscriptions_1.default.update({ type: data.type, price, quantityProducts: data.quantityProducts }, { where: { id } });
+        return res.status(200).json({ message: "Updated Subscription" });
     }
     catch (error) {
         return res.status(500).json({ error: "Error updating" });

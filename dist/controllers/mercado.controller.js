@@ -230,12 +230,30 @@ const isValidSignature = (req) => {
         return false;
     }
 };
+// El external_reference de las suscripciones creadas por esta app es
+// "<idUsuario>-<cantidadProductos>". Suscripciones antiguas usan otro formato
+// (p. ej. "<email>-Tienda online"); devolvemos null para poder ignorarlas.
+const parseExternalReference = (reference) => {
+    const match = /^(\d+)-(\d+)$/.exec(String(reference !== null && reference !== void 0 ? reference : ""));
+    if (!match)
+        return null;
+    return { clientId: match[1], quantityProducts: match[2] };
+};
 // Crea la suscripción real en BD a partir de los datos de MercadoPago.
 // Idempotente: si el usuario ya tiene una suscripción no hace nada, por lo que
 // puede dispararse tanto desde "subscription_preapproval" como desde
 // "subscription_authorized_payment" sin duplicar.
 const activateSubscription = (params) => __awaiter(void 0, void 0, void 0, function* () {
     const { clientId, quantityProducts, price, reason, dateCreated, subscriptionId } = params;
+    // Si este preapproval ya está guardado, la suscripción existe (aunque el
+    // external_reference apunte a otro id de usuario, p. ej. tras restaurar la BD).
+    if (subscriptionId) {
+        const existing = yield suscriptions_1.default.findOne({ where: { subscriptionId } });
+        if (existing) {
+            console.log("[WEBHOOK] El preapproval ya está registrado, se omite", subscriptionId);
+            return;
+        }
+    }
     const user = yield users_1.default.findByPk(clientId, { include: [suscriptions_1.default] });
     if (!user) {
         console.log("[WEBHOOK] El cliente no existe", clientId);
@@ -322,7 +340,13 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 res.sendStatus(200);
                 return;
             }
-            const [clientId, quantityProducts] = preapproval.external_reference.split("-");
+            const reference = parseExternalReference(preapproval.external_reference);
+            if (!reference) {
+                console.log(`[WEBHOOK] external_reference con formato no reconocido "${preapproval.external_reference}", ignorando.`);
+                res.sendStatus(200);
+                return;
+            }
+            const { clientId, quantityProducts } = reference;
             console.log(`[WEBHOOK] clientId="${clientId}" quantityProducts="${quantityProducts}"`);
             yield activateSubscription({
                 clientId,
@@ -352,7 +376,13 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 res.sendStatus(200);
                 return;
             }
-            const [clientId, quantityProducts] = paymentData.external_reference.split("-");
+            const reference = parseExternalReference(paymentData.external_reference);
+            if (!reference) {
+                console.log(`[WEBHOOK] external_reference con formato no reconocido "${paymentData.external_reference}", ignorando.`);
+                res.sendStatus(200);
+                return;
+            }
+            const { clientId, quantityProducts } = reference;
             console.log(`[WEBHOOK] clientId="${clientId}" quantityProducts="${quantityProducts}"`);
             yield activateSubscription({
                 clientId,
@@ -392,8 +422,22 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 res.sendStatus(200);
                 return;
             }
-            const client = externalReference.split("-")[0];
-            yield preapprovald_subscriptions_1.default.create({ client: client });
+            const reference = parseExternalReference(externalReference);
+            if (!reference) {
+                console.log(`[WEBHOOK] Pago ${data.id} con external_reference no reconocido "${externalReference}", ignorando.`);
+                res.sendStatus(200);
+                return;
+            }
+            // Solo sirve para el primer cobro (usuario aún sin suscripción en BD).
+            // Los cobros mensuales de quien ya tiene suscripción no deben crear filas.
+            const user = yield users_1.default.findByPk(reference.clientId, { include: [suscriptions_1.default] });
+            const { dataValues: userData } = (user !== null && user !== void 0 ? user : { dataValues: null });
+            if (!userData || userData.Subscriptions.length) {
+                console.log(`[WEBHOOK] Pago ${data.id}: usuario inexistente o con suscripción, ignorando.`);
+                res.sendStatus(200);
+                return;
+            }
+            yield preapprovald_subscriptions_1.default.create({ client: reference.clientId });
             res.sendStatus(200);
             return;
         }

@@ -8,8 +8,8 @@ const joi_1 = __importDefault(require("joi"));
 exports.planSchemaUpdated = joi_1.default.object({
     price: joi_1.default.number().required(),
     client: joi_1.default.number().required(),
-    quantityProducts: joi_1.default.number().optional(),
+    quantityProducts: joi_1.default.number().required(),
     type: joi_1.default.string()
         .valid("Emprendedor", "Crecimiento", "Corporativo")
-        .optional(),
+        .required(),
 });
