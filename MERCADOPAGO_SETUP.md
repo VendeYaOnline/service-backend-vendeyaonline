@@ -29,6 +29,7 @@ Moneda: **COP** · País: **Colombia (MCO)**.
 | `ACCESS_TOKEN` | Backend | Access Token de MercadoPago (**de prueba** o **producción**). |
 | `MP_WEBHOOK_SECRET` | Backend | Clave secreta para validar la firma `x-signature` del webhook. |
 | `JWT_SECRET` | Backend | Secreto de los JWT de tu app (no es de MP). |
+| `ADMIN_EMAIL` | Backend | Correo del administrador. Solo él puede cambiar el precio de una suscripción desde el dashboard (se replica en Mercado Pago). |
 | `DATABASE_URL` | Backend | Conexión a la base de datos. |
 | `PORT` | Backend | Puerto del servidor. |
 | `NEXT_PUBLIC_URL_BACKEND` | Frontend | URL base del backend que consume el frontend. |
