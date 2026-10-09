@@ -127,17 +127,44 @@ const updatedPassword = (req, res) => __awaiter(void 0, void 0, void 0, function
     }
 });
 exports.updatedPassword = updatedPassword;
+// El token de recuperación se firma con JWT_SECRET + el hash actual de la
+// contraseña: caduca en 1 hora y deja de servir en cuanto la contraseña cambia.
+const PASSWORD_RESET_PURPOSE = "password-reset";
+const passwordResetSecret = (passwordHash) => process.env.JWT_SECRET + passwordHash;
 const updatedPasswordEmail = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const { token, newPassword } = (_a = req.body) !== null && _a !== void 0 ? _a : {};
+    if (typeof token !== "string" ||
+        typeof newPassword !== "string" ||
+        newPassword.length < 8) {
+        res.status(400).json({ error: "Invalid request" });
+        return;
+    }
     try {
-        const { email, newPassword } = req.body;
+        const decoded = jsonwebtoken_1.default.decode(token);
+        const email = decoded && typeof decoded !== "string" ? decoded.email : undefined;
+        const user = email ? yield users_1.default.findOne({ where: { email } }) : null;
+        if (!user) {
+            res.status(400).json({ error: "Invalid or expired token" });
+            return;
+        }
+        const { dataValues } = user;
+        const payload = jsonwebtoken_1.default.verify(token, passwordResetSecret(dataValues.password));
+        if (typeof payload === "string" ||
+            payload.purpose !== PASSWORD_RESET_PURPOSE) {
+            res.status(400).json({ error: "Invalid or expired token" });
+            return;
+        }
         const hashedPassword = yield bcrypt_1.default.hash(newPassword, 10);
-        yield users_1.default.update({ password: hashedPassword }, {
-            where: { email },
-        });
+        yield users_1.default.update({ password: hashedPassword }, { where: { email } });
         res.status(200).json({ message: "Updated password" });
         return;
     }
     catch (error) {
+        if ((error === null || error === void 0 ? void 0 : error.name) === "JsonWebTokenError" || (error === null || error === void 0 ? void 0 : error.name) === "TokenExpiredError") {
+            res.status(400).json({ error: "Invalid or expired token" });
+            return;
+        }
         res.status(500).json({ error: "Error updating password" });
         return;
     }
@@ -215,8 +242,11 @@ const changePassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
         const { email } = req.params;
         const user = yield users_1.default.findOne({ where: { email } });
         if (user) {
+            const { dataValues } = user;
+            const token = jsonwebtoken_1.default.sign({ email, purpose: PASSWORD_RESET_PURPOSE }, passwordResetSecret(dataValues.password), { expiresIn: "1h" });
             yield axios_1.default.post("https://app-email-production.up.railway.app/change-password", {
                 email,
+                token,
             }, {
                 headers: {
                     "Content-Type": "application/json",
