@@ -189,12 +189,15 @@ export const updatedSuscription = async (req: Request, res: Response) => {
         return;
       }
 
+      const typeChanged = data.type !== undefined && data.type !== stored.type;
+
       // Primero Mercado Pago; la BD solo se actualiza si este paso funciona.
-      if (priceChanged) {
+      // Si solo cambia el tipo, se reenvía el monto vigente para actualizar el motivo.
+      if (priceChanged || typeChanged) {
         await setPreapprovalAmount(
           stored.subscriptionId,
           data.type ?? stored.type,
-          Math.round(data.price),
+          priceChanged ? Math.round(data.price) : stored.price,
           finalStatus,
         );
       } else {
@@ -204,8 +207,16 @@ export const updatedSuscription = async (req: Request, res: Response) => {
       await Subscription.update(data, { where: { id } });
       res.status(200).json({ message: "Updated Subscription" });
       return;
-    } catch (error) {
-      res.status(500).json({ error: "Error updating" });
+    } catch (error: any) {
+      const mpError = error?.response?.data;
+      console.error(
+        "[updatedSuscription] Error:",
+        mpError ?? error?.message ?? error,
+      );
+      res.status(500).json({
+        error: "Error updating",
+        detail: mpError?.message ?? error?.message,
+      });
       return;
     }
   }

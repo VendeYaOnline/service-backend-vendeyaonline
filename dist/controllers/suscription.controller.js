@@ -166,7 +166,7 @@ const setPreapprovalAmount = (subscriptionId, type, price, finalStatus) => __awa
     }
 });
 const updatedSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+    var _a, _b, _c, _d;
     const { error } = suscriptionSchema_1.suscriptionSchemaUpdated.validate(req.body);
     if (error) {
         res.status(400).json({ error: error.details[0].message });
@@ -193,9 +193,11 @@ const updatedSuscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
                 res.status(400).json({ error: "Invalid price" });
                 return;
             }
+            const typeChanged = data.type !== undefined && data.type !== stored.type;
             // Primero Mercado Pago; la BD solo se actualiza si este paso funciona.
-            if (priceChanged) {
-                yield setPreapprovalAmount(stored.subscriptionId, (_a = data.type) !== null && _a !== void 0 ? _a : stored.type, Math.round(data.price), finalStatus);
+            // Si solo cambia el tipo, se reenvía el monto vigente para actualizar el motivo.
+            if (priceChanged || typeChanged) {
+                yield setPreapprovalAmount(stored.subscriptionId, (_a = data.type) !== null && _a !== void 0 ? _a : stored.type, priceChanged ? Math.round(data.price) : stored.price, finalStatus);
             }
             else {
                 yield axios_1.default.put(preapprovalUrl, { status: finalStatus }, { headers });
@@ -205,7 +207,12 @@ const updatedSuscription = (req, res) => __awaiter(void 0, void 0, void 0, funct
             return;
         }
         catch (error) {
-            res.status(500).json({ error: "Error updating" });
+            const mpError = (_b = error === null || error === void 0 ? void 0 : error.response) === null || _b === void 0 ? void 0 : _b.data;
+            console.error("[updatedSuscription] Error:", (_c = mpError !== null && mpError !== void 0 ? mpError : error === null || error === void 0 ? void 0 : error.message) !== null && _c !== void 0 ? _c : error);
+            res.status(500).json({
+                error: "Error updating",
+                detail: (_d = mpError === null || mpError === void 0 ? void 0 : mpError.message) !== null && _d !== void 0 ? _d : error === null || error === void 0 ? void 0 : error.message,
+            });
             return;
         }
     }
