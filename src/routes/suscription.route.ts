@@ -17,34 +17,37 @@ import {
   updatedPlan,
   getSuscriptionByUser,
 } from "../controllers/suscription.controller";
-import { validateAdmin, validateToken } from "../middlewares";
+import { validateAdmin, validateOwner, validateToken } from "../middlewares";
 
 const route = Router();
 
+const ownerByParam = validateOwner((req) => req.params.id);
+const ownerByClient = validateOwner((req) => req.body?.client);
+
 route.get("/get-suscriptions", [validateAdmin, getAllSuscription]);
-route.get("/get-suscription-user/:id", [validateToken, getSuscriptionByUser]);
+route.get("/get-suscription-user/:id", [ownerByParam, getSuscriptionByUser]);
 
 route.get("/get-cancellations", [validateAdmin, getAllCancellations]);
-route.get("/get-suscription/:id", [validateToken, getSuscription]);
+route.get("/get-suscription/:id", [ownerByParam, getSuscription]);
 route.get("/get-canceled_suscription/:id", [
-  validateToken,
+  ownerByParam,
   getCanceledSuscription,
 ]);
 route.post("/create-suscription", [validateAdmin, createSuscription]);
 route.post("/create-canceled_suscription", [
-  validateToken,
+  ownerByClient,
   createCanceledSubscriptions,
 ]);
 route.post("/create-active_suscription", [
-  validateToken,
+  ownerByClient,
   createActiveSubscriptions,
 ]);
 route.post("/create-canceled_suscription_pause", [
-  validateToken,
+  ownerByClient,
   createCanceledSubscriptionsPause,
 ]);
 route.post("/create-active_suscription_pause", [
-  validateToken,
+  ownerByClient,
   createActiveSubscriptionsPause,
 ]);
 route.put("/updated-suscription/:id", [validateAdmin, updatedSuscription]);

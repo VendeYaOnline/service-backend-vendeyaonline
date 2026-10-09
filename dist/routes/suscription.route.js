@@ -4,29 +4,31 @@ const express_1 = require("express");
 const suscription_controller_1 = require("../controllers/suscription.controller");
 const middlewares_1 = require("../middlewares");
 const route = (0, express_1.Router)();
+const ownerByParam = (0, middlewares_1.validateOwner)((req) => req.params.id);
+const ownerByClient = (0, middlewares_1.validateOwner)((req) => { var _a; return (_a = req.body) === null || _a === void 0 ? void 0 : _a.client; });
 route.get("/get-suscriptions", [middlewares_1.validateAdmin, suscription_controller_1.getAllSuscription]);
-route.get("/get-suscription-user/:id", [middlewares_1.validateToken, suscription_controller_1.getSuscriptionByUser]);
+route.get("/get-suscription-user/:id", [ownerByParam, suscription_controller_1.getSuscriptionByUser]);
 route.get("/get-cancellations", [middlewares_1.validateAdmin, suscription_controller_1.getAllCancellations]);
-route.get("/get-suscription/:id", [middlewares_1.validateToken, suscription_controller_1.getSuscription]);
+route.get("/get-suscription/:id", [ownerByParam, suscription_controller_1.getSuscription]);
 route.get("/get-canceled_suscription/:id", [
-    middlewares_1.validateToken,
+    ownerByParam,
     suscription_controller_1.getCanceledSuscription,
 ]);
 route.post("/create-suscription", [middlewares_1.validateAdmin, suscription_controller_1.createSuscription]);
 route.post("/create-canceled_suscription", [
-    middlewares_1.validateToken,
+    ownerByClient,
     suscription_controller_1.createCanceledSubscriptions,
 ]);
 route.post("/create-active_suscription", [
-    middlewares_1.validateToken,
+    ownerByClient,
     suscription_controller_1.createActiveSubscriptions,
 ]);
 route.post("/create-canceled_suscription_pause", [
-    middlewares_1.validateToken,
+    ownerByClient,
     suscription_controller_1.createCanceledSubscriptionsPause,
 ]);
 route.post("/create-active_suscription_pause", [
-    middlewares_1.validateToken,
+    ownerByClient,
     suscription_controller_1.createActiveSubscriptionsPause,
 ]);
 route.put("/updated-suscription/:id", [middlewares_1.validateAdmin, suscription_controller_1.updatedSuscription]);
