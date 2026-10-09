@@ -119,6 +119,55 @@ export const createSuscription = async (req: Request, res: Response) => {
   }
 };
 
+// Solo el administrador (ADMIN_EMAIL) puede cambiar el monto que se cobra en Mercado Pago.
+const isAdminRequest = (req: Request) => {
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const token = req.header("Authorization")?.split(" ")[1];
+  const payload = token ? jwt.decode(token) : null;
+  if (!adminEmail || !payload || typeof payload === "string") return false;
+  return String(payload.email ?? "").toLowerCase() === adminEmail;
+};
+
+// Cambia el monto mensual del preapproval en Mercado Pago. MP solo permite
+// cambiarlo en estado "authorized", así que se autoriza temporalmente y se
+// deja en `finalStatus` aunque falle el cambio de monto.
+const setPreapprovalAmount = async (
+  subscriptionId: string,
+  type: string,
+  price: number,
+  finalStatus: "authorized" | "paused",
+) => {
+  const preapprovalUrl = `https://api.mercadopago.com/preapproval/${subscriptionId}`;
+  const headers = {
+    Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+    "Content-Type": "application/json",
+  };
+
+  const { data: preapproval } = await axios.get(preapprovalUrl, { headers });
+  if (preapproval.status !== "authorized") {
+    await axios.put(preapprovalUrl, { status: "authorized" }, { headers });
+  }
+  try {
+    await axios.put(
+      preapprovalUrl,
+      {
+        reason: "Plan " + type,
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: "months",
+          transaction_amount: price,
+          currency_id: "COP",
+        },
+      },
+      { headers },
+    );
+  } finally {
+    if (finalStatus === "paused") {
+      await axios.put(preapprovalUrl, { status: "paused" }, { headers });
+    }
+  }
+};
+
 export const updatedSuscription = async (req: Request, res: Response) => {
   const { error } = suscriptionSchemaUpdated.validate(req.body);
   if (error) {
@@ -132,21 +181,44 @@ export const updatedSuscription = async (req: Request, res: Response) => {
         Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
         "Content-Type": "application/json",
       };
-      const subscription = await Subscription.update(data, {
-        returning: true,
-        where: { id },
-      });
-      const { dataValues } = subscription[1][0] as { dataValues: SuscriptionI };
-      const preapprovalUrl = `https://api.mercadopago.com/preapproval/${dataValues.subscriptionId}`;
-      if (data.status === "active") {
-        await axios.put(preapprovalUrl, { status: "authorized" }, { headers });
-        res.status(200).json({ message: "Updated Subscription" });
-        return;
-      } else {
-        await axios.put(preapprovalUrl, { status: "paused" }, { headers });
-        res.status(200).json({ message: "Updated Subscription" });
+
+      const current = await Subscription.findByPk(id);
+      if (!current) {
+        res.status(404).json({ message: "Subscription not found" });
         return;
       }
+      const { dataValues: stored } = current as { dataValues: SuscriptionI };
+      const preapprovalUrl = `https://api.mercadopago.com/preapproval/${stored.subscriptionId}`;
+      const finalStatus = data.status === "active" ? "authorized" : "paused";
+
+      const priceChanged =
+        data.price !== undefined && Math.round(data.price) !== stored.price;
+      if (priceChanged) {
+        if (!isAdminRequest(req)) {
+          res.status(403).json({ message: "Forbidden" });
+          return;
+        }
+        if (!(data.price > 0)) {
+          res.status(400).json({ error: "Invalid price" });
+          return;
+        }
+      }
+
+      // Primero Mercado Pago; la BD solo se actualiza si este paso funciona.
+      if (priceChanged) {
+        await setPreapprovalAmount(
+          stored.subscriptionId,
+          data.type ?? stored.type,
+          Math.round(data.price),
+          finalStatus,
+        );
+      } else {
+        await axios.put(preapprovalUrl, { status: finalStatus }, { headers });
+      }
+
+      await Subscription.update(data, { where: { id } });
+      res.status(200).json({ message: "Updated Subscription" });
+      return;
     } catch (error) {
       res.status(500).json({ error: "Error updating" });
       return;
