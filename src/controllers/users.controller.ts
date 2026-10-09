@@ -118,19 +118,54 @@ export const updatedPassword = async (req: Request, res: Response) => {
   }
 };
 
+// El token de recuperación se firma con JWT_SECRET + el hash actual de la
+// contraseña: caduca en 1 hora y deja de servir en cuanto la contraseña cambia.
+const PASSWORD_RESET_PURPOSE = "password-reset";
+
+const passwordResetSecret = (passwordHash: string) =>
+  process.env.JWT_SECRET! + passwordHash;
+
 export const updatedPasswordEmail = async (req: Request, res: Response) => {
+  const { token, newPassword } = req.body ?? {};
+
+  if (
+    typeof token !== "string" ||
+    typeof newPassword !== "string" ||
+    newPassword.length < 8
+  ) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+
   try {
-    const { email, newPassword } = req.body;
+    const decoded = jwt.decode(token);
+    const email =
+      decoded && typeof decoded !== "string" ? decoded.email : undefined;
+    const user = email ? await User.findOne({ where: { email } }) : null;
+    if (!user) {
+      res.status(400).json({ error: "Invalid or expired token" });
+      return;
+    }
+
+    const { dataValues } = user as { dataValues: UserI };
+    const payload = jwt.verify(token, passwordResetSecret(dataValues.password));
+    if (
+      typeof payload === "string" ||
+      payload.purpose !== PASSWORD_RESET_PURPOSE
+    ) {
+      res.status(400).json({ error: "Invalid or expired token" });
+      return;
+    }
+
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await User.update(
-      { password: hashedPassword },
-      {
-        where: { email },
-      }
-    );
+    await User.update({ password: hashedPassword }, { where: { email } });
     res.status(200).json({ message: "Updated password" });
     return;
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.name === "JsonWebTokenError" || error?.name === "TokenExpiredError") {
+      res.status(400).json({ error: "Invalid or expired token" });
+      return;
+    }
     res.status(500).json({ error: "Error updating password" });
     return;
   }
@@ -206,10 +241,17 @@ export const changePassword = async (req: Request, res: Response) => {
     const { email } = req.params;
     const user = await User.findOne({ where: { email } });
     if (user) {
+      const { dataValues } = user as { dataValues: UserI };
+      const token = jwt.sign(
+        { email, purpose: PASSWORD_RESET_PURPOSE },
+        passwordResetSecret(dataValues.password),
+        { expiresIn: "1h" }
+      );
       await axios.post(
         "https://app-email-production.up.railway.app/change-password",
         {
           email,
+          token,
         },
         {
           headers: {
