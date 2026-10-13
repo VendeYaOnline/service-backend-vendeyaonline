@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cancelAddon = exports.activateAddon = exports.quoteAddon = void 0;
+exports.accountStatus = exports.cancelAddon = exports.activateAddon = exports.quoteAddon = void 0;
 const sequelize_1 = require("sequelize");
 const connect_1 = require("../database/connect");
 const users_1 = __importDefault(require("../models/users"));
@@ -164,3 +164,47 @@ const changeAddon = (mode) => (req, res) => __awaiter(void 0, void 0, void 0, fu
 exports.activateAddon = changeAddon("activate");
 /** POST /api/service/addons/cancel */
 exports.cancelAddon = changeAddon("cancel");
+/**
+ * POST /api/service/account/status — estado de la suscripción de una cuenta,
+ * para que el panel de tiendas bloquee vistas de pago si se canceló y avise si
+ * Mercado Pago no logra cobrar. `preapproval_status` y `payment_issue` son null
+ * si Mercado Pago no respondió (estado desconocido: el panel no toca nada).
+ */
+const accountStatus = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d, _e;
+    try {
+        const email = typeof ((_a = req.body) === null || _a === void 0 ? void 0 : _a.email) === "string" ? req.body.email.trim().toLowerCase() : "";
+        if (!email || email.length > 254 || !email.includes("@")) {
+            throw new AddonError(400, "EMAIL_INVALID", "Correo de la cuenta inválido.");
+        }
+        const { user, subscription } = yield findAccount(email);
+        if (!user)
+            return res.status(200).json({ account: false, subscription: null });
+        if (!subscription)
+            return res.status(200).json({ account: true, subscription: null });
+        let preapproval = null;
+        try {
+            preapproval = yield (0, addons_1.getPreapproval)(subscription.getDataValue("subscriptionId"));
+        }
+        catch (_f) {
+            preapproval = null;
+        }
+        // Semáforo de cobros de Mercado Pago: green = al día; yellow/red = cobros fallidos.
+        const semaphore = (_c = (_b = preapproval === null || preapproval === void 0 ? void 0 : preapproval.summarized) === null || _b === void 0 ? void 0 : _b.semaphore) !== null && _c !== void 0 ? _c : null;
+        return res.status(200).json({
+            account: true,
+            subscription: {
+                type: subscription.getDataValue("type"),
+                status: subscription.getDataValue("status"),
+                addons: (0, addons_1.normalizeAddons)(subscription.getDataValue("addons")),
+                preapproval_status: (_d = preapproval === null || preapproval === void 0 ? void 0 : preapproval.status) !== null && _d !== void 0 ? _d : null,
+                payment_issue: preapproval ? semaphore === "yellow" || semaphore === "red" : null,
+                next_payment_date: (_e = preapproval === null || preapproval === void 0 ? void 0 : preapproval.next_payment_date) !== null && _e !== void 0 ? _e : null,
+            },
+        });
+    }
+    catch (error) {
+        return sendError(res, error, "status");
+    }
+});
+exports.accountStatus = accountStatus;
