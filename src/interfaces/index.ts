@@ -19,4 +19,6 @@ export interface SuscriptionI {
   status: string;
   date: string;
   client: string;
+  /** Complementos que se suman a la mensualidad (utils/addons.ts). */
+  addons?: string[];
 }

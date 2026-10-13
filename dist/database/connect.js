@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetDatabase = exports.sequelize = void 0;
+exports.resetDatabase = exports.ensureSchema = exports.sequelize = void 0;
 const dotenv_1 = __importDefault(require("dotenv"));
 const sequelize_1 = require("sequelize");
 dotenv_1.default.config();
@@ -20,6 +20,14 @@ exports.sequelize = new sequelize_1.Sequelize(process.env.DATABASE_URL, {
     dialect: "postgres",
     logging: false,
 });
+/**
+ * Cambios aditivos del esquema, al arrancar. Nunca borra ni modifica datos:
+ * solo agrega lo que falta (columnas nuevas con valor por defecto).
+ */
+const ensureSchema = () => __awaiter(void 0, void 0, void 0, function* () {
+    yield exports.sequelize.query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS addons JSON NOT NULL DEFAULT '[]'::json`);
+});
+exports.ensureSchema = ensureSchema;
 const resetDatabase = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
         yield exports.sequelize.sync({ force: true }); // Esto eliminará y volverá a crear todas las tablas

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import User from "../models/users";
 
 export const validateToken = (
@@ -114,6 +115,29 @@ export const validateOwner = (
   return (req: Request, res: Response, next: NextFunction) => {
     void handle(req, res, next);
   };
+};
+
+// Rutas servidor a servidor (backend del panel de tiendas): header x-service-key
+// igual a VENDEYA_SERVICE_KEY. Nunca se llaman desde el navegador. Sin la
+// variable configurada nadie pasa.
+export const validateService = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const expected = process.env.VENDEYA_SERVICE_KEY ?? "";
+  const received = String(req.header("x-service-key") ?? "");
+  if (expected.length < 32) {
+    res.status(503).json({ code: "SERVICE_NOT_CONFIGURED", message: "Service key not configured" });
+    return;
+  }
+  const a = crypto.createHash("sha256").update(received).digest();
+  const b = crypto.createHash("sha256").update(expected).digest();
+  if (!crypto.timingSafeEqual(a, b)) {
+    res.status(401).json({ code: "SERVICE_UNAUTHORIZED", message: "Unauthorized" });
+    return;
+  }
+  next();
 };
 
 // Login del dashboard: solo permite iniciar sesión al administrador. Responde

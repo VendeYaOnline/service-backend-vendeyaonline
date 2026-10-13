@@ -40,6 +40,12 @@ const Subscription = sequelize.define(
       allowNull: false,
       defaultValue: "pause",
     },
+    // Complementos sumados a la mensualidad (utils/addons.ts). `price` es solo el plan.
+    addons: {
+      type: DataTypes.JSON,
+      allowNull: false,
+      defaultValue: [],
+    },
     client: {
       type: DataTypes.INTEGER,
       allowNull: false,

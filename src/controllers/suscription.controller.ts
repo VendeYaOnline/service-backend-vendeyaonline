@@ -11,6 +11,12 @@ import PreapprovaldSubscription from "../models/preapprovald_subscriptions";
 import { planSchemaUpdated } from "../schemas/planSchema";
 import axios from "axios";
 import jwt from "jsonwebtoken";
+import {
+  MP_API_URL,
+  addonsTotal,
+  setPreapprovalAmount,
+  subscriptionTotal,
+} from "../utils/addons";
 
 export const getAllSuscription = async (_req: Request, res: Response) => {
   try {
@@ -119,46 +125,6 @@ export const createSuscription = async (req: Request, res: Response) => {
   }
 };
 
-// Cambia el monto mensual del preapproval en Mercado Pago. MP solo permite
-// cambiarlo en estado "authorized", así que se autoriza temporalmente y se
-// deja en `finalStatus` aunque falle el cambio de monto.
-const setPreapprovalAmount = async (
-  subscriptionId: string,
-  type: string,
-  price: number,
-  finalStatus: "authorized" | "paused",
-) => {
-  const preapprovalUrl = `https://api.mercadopago.com/preapproval/${subscriptionId}`;
-  const headers = {
-    Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-    "Content-Type": "application/json",
-  };
-
-  const { data: preapproval } = await axios.get(preapprovalUrl, { headers });
-  if (preapproval.status !== "authorized") {
-    await axios.put(preapprovalUrl, { status: "authorized" }, { headers });
-  }
-  try {
-    await axios.put(
-      preapprovalUrl,
-      {
-        reason: "Plan " + type,
-        auto_recurring: {
-          frequency: 1,
-          frequency_type: "months",
-          transaction_amount: price,
-          currency_id: "COP",
-        },
-      },
-      { headers },
-    );
-  } finally {
-    if (finalStatus === "paused") {
-      await axios.put(preapprovalUrl, { status: "paused" }, { headers });
-    }
-  }
-};
-
 export const updatedSuscription = async (req: Request, res: Response) => {
   const { error } = suscriptionSchemaUpdated.validate(req.body);
   if (error) {
@@ -179,7 +145,7 @@ export const updatedSuscription = async (req: Request, res: Response) => {
         return;
       }
       const { dataValues: stored } = current as { dataValues: SuscriptionI };
-      const preapprovalUrl = `https://api.mercadopago.com/preapproval/${stored.subscriptionId}`;
+      const preapprovalUrl = `${MP_API_URL}/preapproval/${stored.subscriptionId}`;
       const finalStatus = data.status === "active" ? "authorized" : "paused";
 
       const priceChanged =
@@ -193,11 +159,12 @@ export const updatedSuscription = async (req: Request, res: Response) => {
 
       // Primero Mercado Pago; la BD solo se actualiza si este paso funciona.
       // Si solo cambia el tipo, se reenvía el monto vigente para actualizar el motivo.
+      // `price` es el del plan: Mercado Pago cobra además los complementos.
       if (priceChanged || typeChanged) {
         await setPreapprovalAmount(
           stored.subscriptionId,
           data.type ?? stored.type,
-          priceChanged ? Math.round(data.price) : stored.price,
+          subscriptionTotal(priceChanged ? data.price : stored.price, stored.addons),
           finalStatus,
         );
       } else {
@@ -274,7 +241,7 @@ export const updatedPlan = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "No subscription found" });
     }
 
-    const { id, numberProductsCreated, status, subscriptionId } = subscription;
+    const { id, numberProductsCreated, status, subscriptionId, addons } = subscription;
 
     if (status !== "active" && status !== "pause") {
       return res
@@ -292,34 +259,14 @@ export const updatedPlan = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Error updating plan" });
     }
 
-    const preapprovalUrl = `https://api.mercadopago.com/preapproval/${subscriptionId}`;
-    const headers = {
-      Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-    };
-    const amountBody = {
-      reason: "Plan " + data.type,
-      auto_recurring: {
-        frequency: 1,
-        frequency_type: "months",
-        transaction_amount: price,
-        currency_id: "COP",
-      },
-    };
-
     // Primero Mercado Pago; la BD solo se actualiza si este paso funciona.
-    if (status === "pause") {
-      // Mercado Pago solo permite cambiar el monto en estado authorized.
-      await axios.put(preapprovalUrl, { status: "authorized" }, { headers });
-      try {
-        await axios.put(preapprovalUrl, amountBody, { headers });
-      } finally {
-        // Se vuelve a pausar aunque falle el cambio de monto.
-        await axios.put(preapprovalUrl, { status: "paused" }, { headers });
-      }
-    } else {
-      await axios.put(preapprovalUrl, amountBody, { headers });
-    }
+    // Los complementos activos (p. ej. Marketing) se siguen cobrando con el plan nuevo.
+    await setPreapprovalAmount(
+      subscriptionId,
+      data.type,
+      subscriptionTotal(price, addons),
+      status === "pause" ? "paused" : "authorized",
+    );
 
     await Subscription.update(
       { type: data.type, price, quantityProducts: data.quantityProducts },
@@ -558,6 +505,9 @@ export const getSuscription = async (req: Request, res: Response) => {
             email: dataValues.email,
             date_limit: "",
             preapproval_id: subscriptionData.subscriptionId,
+            // `price` es el del plan; esto es lo que se cobra con complementos.
+            addons_total: addonsTotal(subscriptionData.addons),
+            total_price: subscriptionTotal(subscriptionData.price, subscriptionData.addons),
           },
           preapproval: false,
         });

@@ -12,8 +12,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.corsOptions = exports.adminLoginOnly = exports.validateOwner = exports.validateAdmin = exports.validateToken = void 0;
+exports.corsOptions = exports.adminLoginOnly = exports.validateService = exports.validateOwner = exports.validateAdmin = exports.validateToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const crypto_1 = __importDefault(require("crypto"));
 const users_1 = __importDefault(require("../models/users"));
 const validateToken = (req, res, next) => {
     var _a;
@@ -114,6 +115,26 @@ const validateOwner = (getUserId) => {
     };
 };
 exports.validateOwner = validateOwner;
+// Rutas servidor a servidor (backend del panel de tiendas): header x-service-key
+// igual a VENDEYA_SERVICE_KEY. Nunca se llaman desde el navegador. Sin la
+// variable configurada nadie pasa.
+const validateService = (req, res, next) => {
+    var _a, _b;
+    const expected = (_a = process.env.VENDEYA_SERVICE_KEY) !== null && _a !== void 0 ? _a : "";
+    const received = String((_b = req.header("x-service-key")) !== null && _b !== void 0 ? _b : "");
+    if (expected.length < 32) {
+        res.status(503).json({ code: "SERVICE_NOT_CONFIGURED", message: "Service key not configured" });
+        return;
+    }
+    const a = crypto_1.default.createHash("sha256").update(received).digest();
+    const b = crypto_1.default.createHash("sha256").update(expected).digest();
+    if (!crypto_1.default.timingSafeEqual(a, b)) {
+        res.status(401).json({ code: "SERVICE_UNAUTHORIZED", message: "Unauthorized" });
+        return;
+    }
+    next();
+};
+exports.validateService = validateService;
 // Login del dashboard: solo permite iniciar sesión al administrador. Responde
 // igual que un login fallido para no revelar qué correos existen.
 const adminLoginOnly = (req, res, next) => {
