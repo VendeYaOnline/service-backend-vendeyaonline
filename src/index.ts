@@ -5,6 +5,8 @@ import routeUsers from "./routes/users.route";
 import routeSuscription from "./routes/suscription.route";
 import routeMercado from "./routes/mercado.route";
 import routeForm from "./routes/form.route";
+import routeAddons from "./routes/addons.route";
+import { ensureSchema } from "./database/connect";
 import { corsOptions } from "./middlewares";
 const app = express();
 dotenv.config();
@@ -21,8 +23,14 @@ app.use("/api", routeUsers);
 app.use("/api", routeSuscription);
 app.use("/api", routeMercado);
 app.use("/api", routeForm);
+app.use("/api", routeAddons);
 
 //SERVER
-app.listen(app.get("port"), () => {
-  console.log("Server run in port", app.get("port"));
-});
+// Primero los cambios aditivos del esquema (p. ej. subscriptions.addons).
+ensureSchema()
+  .catch((error) => console.error("[SCHEMA] No se pudo actualizar el esquema:", error?.message ?? error))
+  .finally(() => {
+    app.listen(app.get("port"), () => {
+      console.log("Server run in port", app.get("port"));
+    });
+  });

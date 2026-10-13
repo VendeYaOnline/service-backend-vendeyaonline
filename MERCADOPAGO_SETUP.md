@@ -33,6 +33,8 @@ Moneda: **COP** · País: **Colombia (MCO)**.
 | `DATABASE_URL` | Backend | Conexión a la base de datos. |
 | `PORT` | Backend | Puerto del servidor. |
 | `NEXT_PUBLIC_URL_BACKEND` | Frontend | URL base del backend que consume el frontend. |
+| `VENDEYA_SERVICE_KEY` | Backend | Clave compartida (mínimo 32 caracteres) con el backend del panel de tiendas para sumar complementos al plan. La misma en los dos servicios. Ver [Anexo C](#anexo-c--complementos-del-plan-vistas-de-pago). |
+| `MERCADOPAGO_API_URL` | Backend | **Solo pruebas locales** (un Mercado Pago simulado). En producción no se define. |
 
 > ⚠️ **Importante:** hoy el `back_url` y el `notification_url` están **hardcodeados** en
 > `src/controllers/mercado.controller.ts` (`createSubscription`):
@@ -269,3 +271,35 @@ BACKEND_URL=https://service-backend-vendeyaonline-production.up.railway.app
 | La suscripción nunca se activa | No se reciben `subscription_preapproval`/`authorized_payment` | Confirma que los 3 eventos están suscritos. |
 | "Cannot operate between different countries" | Email/cuenta de otra región | Usa cuentas de prueba **de Colombia (MCO)**. |
 | No se ve el medio de pago | No hay pago registrado aún o no es plan `active` | Espera al primer pago; hoy la tarjeta solo se muestra en estado `active`. |
+
+---
+
+## Anexo C — Complementos del plan (vistas de pago)
+
+Las tiendas pueden sumar vistas de pago (hoy **Marketing**, +$10.000 al mes) desde
+su panel, sin volver al checkout: se cambia el monto del `preapproval` que ya
+tienen (misma tarjeta) y el nuevo valor se cobra desde la **siguiente mensualidad**.
+
+- `subscriptions.price` sigue siendo el precio del **plan**. Los complementos se
+  guardan en `subscriptions.addons` (p. ej. `["marketing"]`) y Mercado Pago cobra
+  `price + complementos` (`src/utils/addons.ts`). La columna se agrega sola al
+  arrancar (`ensureSchema`, aditivo).
+- Cambiar de plan (`/updated-plan`) o editarlo desde el dashboard
+  (`/updated-suscription`) conserva los complementos activos.
+- `getSuscription` devuelve además `addons_total` y `total_price` (lo que se cobra).
+
+Endpoints **servidor a servidor** (header `x-service-key` = `VENDEYA_SERVICE_KEY`;
+nunca desde el navegador). La tienda se identifica con el correo de su cuenta:
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| POST | `/api/service/addons/quote` | Plan, total actual, próximo cobro y si puede sumarlo. |
+| POST | `/api/service/addons/activate` | Suma el complemento (primero Mercado Pago, luego la BD). Idempotente. |
+| POST | `/api/service/addons/cancel` | Lo quita. Idempotente. |
+
+Cuerpo: `{ "email": "dueno@tienda.com", "addon": "marketing" }`. Solo funciona con
+suscripciones en estado `active` o `pause`.
+
+**Configuración en Railway:** genera una clave larga (p. ej. `openssl rand -hex 32`)
+y ponla como `VENDEYA_SERVICE_KEY` en este servicio y en el backend del panel de
+tiendas (allí junto a `VENDEYA_BILLING_URL` = la URL pública de este backend).
