@@ -169,3 +169,43 @@ export const activateAddon = changeAddon("activate");
 
 /** POST /api/service/addons/cancel */
 export const cancelAddon = changeAddon("cancel");
+
+/**
+ * POST /api/service/account/status — estado de la suscripción de una cuenta,
+ * para que el panel de tiendas bloquee vistas de pago si se canceló y avise si
+ * Mercado Pago no logra cobrar. `preapproval_status` y `payment_issue` son null
+ * si Mercado Pago no respondió (estado desconocido: el panel no toca nada).
+ */
+export const accountStatus = async (req: Request, res: Response) => {
+  try {
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    if (!email || email.length > 254 || !email.includes("@")) {
+      throw new AddonError(400, "EMAIL_INVALID", "Correo de la cuenta inválido.");
+    }
+    const { user, subscription } = await findAccount(email);
+    if (!user) return res.status(200).json({ account: false, subscription: null });
+    if (!subscription) return res.status(200).json({ account: true, subscription: null });
+
+    let preapproval: any = null;
+    try {
+      preapproval = await getPreapproval(subscription.getDataValue("subscriptionId"));
+    } catch {
+      preapproval = null;
+    }
+    // Semáforo de cobros de Mercado Pago: green = al día; yellow/red = cobros fallidos.
+    const semaphore = preapproval?.summarized?.semaphore ?? null;
+    return res.status(200).json({
+      account: true,
+      subscription: {
+        type: subscription.getDataValue("type"),
+        status: subscription.getDataValue("status"),
+        addons: normalizeAddons(subscription.getDataValue("addons")),
+        preapproval_status: preapproval?.status ?? null,
+        payment_issue: preapproval ? semaphore === "yellow" || semaphore === "red" : null,
+        next_payment_date: preapproval?.next_payment_date ?? null,
+      },
+    });
+  } catch (error) {
+    return sendError(res, error, "status");
+  }
+};
