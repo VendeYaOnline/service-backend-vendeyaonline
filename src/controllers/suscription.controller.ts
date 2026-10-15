@@ -14,6 +14,7 @@ import jwt from "jsonwebtoken";
 import {
   MP_API_URL,
   addonsTotal,
+  normalizeAddons,
   setPreapprovalAmount,
   subscriptionTotal,
 } from "../utils/addons";
@@ -506,6 +507,8 @@ export const getSuscription = async (req: Request, res: Response) => {
             date_limit: "",
             preapproval_id: subscriptionData.subscriptionId,
             // `price` es el del plan; esto es lo que se cobra con complementos.
+            // El panel recibe solo las claves (los precios van en los totales).
+            addons: normalizeAddons(subscriptionData.addons),
             addons_total: addonsTotal(subscriptionData.addons),
             total_price: subscriptionTotal(subscriptionData.price, subscriptionData.addons),
           },

@@ -5,28 +5,56 @@ import axios from "axios";
  * panel de la tienda). El precio lo define este servidor, nunca el cliente.
  * `subscriptions.price` sigue siendo el precio del plan; lo que cobra Mercado
  * Pago es plan + complementos (ver `subscriptionTotal`).
+ *
+ * `subscriptions.addons` guarda cada complemento con el precio con el que se
+ * activó: { key, price }. Así, si el precio cambia, quien ya lo tenía sigue
+ * pagando lo mismo (es lo que Mercado Pago le cobra). Las entradas antiguas
+ * son solo la clave ("marketing") y valen LEGACY_PRICES.
  */
 export const ADDONS = {
-  marketing: { label: "Marketing", price: 10000 },
+  marketing: { label: "Marketing", price: 20000 },
 } as const;
 
 export type AddonKey = keyof typeof ADDONS;
+
+/** Precio de las entradas antiguas (solo la clave), el vigente cuando se activaron. */
+const LEGACY_PRICES: Record<AddonKey, number> = { marketing: 10000 };
+
+export interface AddonEntry {
+  key: AddonKey;
+  price: number;
+}
 
 export const ADDON_KEYS = Object.keys(ADDONS) as AddonKey[];
 
 export const isAddonKey = (value: unknown): value is AddonKey =>
   typeof value === "string" && (ADDON_KEYS as string[]).includes(value);
 
-/** Lo guardado en la columna → claves conocidas, sin repetir. */
-export const normalizeAddons = (raw: unknown): AddonKey[] =>
-  Array.isArray(raw) ? ADDON_KEYS.filter((key) => raw.includes(key)) : [];
+/** Lo guardado en la columna → complementos conocidos con su precio, sin repetir. */
+export const addonEntries = (raw: unknown): AddonEntry[] => {
+  if (!Array.isArray(raw)) return [];
+  const entries: AddonEntry[] = [];
+  for (const item of raw) {
+    const key = typeof item === "string" ? item : item?.key;
+    if (!isAddonKey(key) || entries.some((entry) => entry.key === key)) continue;
+    const price = typeof item === "object" && Number.isFinite(Number(item?.price)) ? Math.round(Number(item.price)) : LEGACY_PRICES[key];
+    entries.push({ key, price });
+  }
+  return entries;
+};
 
-export const addonsTotal = (addons: unknown) =>
-  normalizeAddons(addons).reduce((sum, key) => sum + ADDONS[key].price, 0);
+/** Claves de los complementos activos. */
+export const normalizeAddons = (raw: unknown): AddonKey[] => addonEntries(raw).map((entry) => entry.key);
 
-/** Lo que se cobra cada mes: plan + complementos. */
-export const subscriptionTotal = (price: number, addons: unknown) =>
-  Math.round(price) + addonsTotal(addons);
+/** Entrada nueva con el precio vigente. */
+export const newAddonEntry = (key: AddonKey): AddonEntry => ({ key, price: ADDONS[key].price });
+
+/** `raw` = lo guardado en la columna (no solo las claves). */
+export const addonsTotal = (raw: unknown) => addonEntries(raw).reduce((sum, entry) => sum + entry.price, 0);
+
+/** Lo que se cobra cada mes: plan + complementos (`raw` = lo guardado en la columna). */
+export const subscriptionTotal = (price: number, raw: unknown) =>
+  Math.round(price) + addonsTotal(raw);
 
 /**
  * API de Mercado Pago. MERCADOPAGO_API_URL solo se usa para pruebas locales

@@ -59,19 +59,22 @@ const findAccount = (email, transaction) => __awaiter(void 0, void 0, void 0, fu
     return { user, subscription };
 });
 const summary = (subscription, addon, nextPaymentDate = null) => {
+    var _a;
     const price = Number(subscription.getDataValue("price"));
-    const addons = (0, addons_1.normalizeAddons)(subscription.getDataValue("addons"));
+    const raw = subscription.getDataValue("addons");
+    const entry = (0, addons_1.addonEntries)(raw).find((item) => item.key === addon);
     return {
         subscription: {
             type: subscription.getDataValue("type"),
             status: subscription.getDataValue("status"),
             plan_price: price,
-            addons,
-            addons_total: (0, addons_1.addonsTotal)(addons),
-            total: (0, addons_1.subscriptionTotal)(price, addons),
+            addons: (0, addons_1.normalizeAddons)(raw),
+            addons_total: (0, addons_1.addonsTotal)(raw),
+            total: (0, addons_1.subscriptionTotal)(price, raw),
             next_payment_date: nextPaymentDate,
         },
-        addon: Object.assign(Object.assign({ key: addon }, addons_1.ADDONS[addon]), { active: addons.includes(addon) }),
+        // Si ya lo tiene, el precio con el que lo activó; si no, el vigente.
+        addon: Object.assign(Object.assign({ key: addon }, addons_1.ADDONS[addon]), { price: (_a = entry === null || entry === void 0 ? void 0 : entry.price) !== null && _a !== void 0 ? _a : addons_1.ADDONS[addon].price, active: Boolean(entry) }),
     };
 };
 const sendError = (res, error, context) => {
@@ -130,13 +133,14 @@ const changeAddon = (mode) => (req, res) => __awaiter(void 0, void 0, void 0, fu
             if (!EDITABLE_STATUSES.includes(status)) {
                 throw new AddonError(409, "SUBSCRIPTION_NOT_ACTIVE", "La suscripción no está activa.");
             }
-            const current = (0, addons_1.normalizeAddons)(subscription.getDataValue("addons"));
-            const has = current.includes(addon);
+            const current = (0, addons_1.addonEntries)(subscription.getDataValue("addons"));
+            const has = current.some((entry) => entry.key === addon);
             // Idempotente: repetir el pedido no vuelve a cambiar el cobro.
             if ((mode === "activate" && has) || (mode === "cancel" && !has)) {
                 return Object.assign({ changed: false }, summary(subscription, addon));
             }
-            const next = mode === "activate" ? [...current, addon] : current.filter((key) => key !== addon);
+            // Al activar se guarda el precio vigente; quien ya lo tenía conserva el suyo.
+            const next = mode === "activate" ? [...current, (0, addons_1.newAddonEntry)(addon)] : current.filter((entry) => entry.key !== addon);
             const price = Number(subscription.getDataValue("price"));
             const subscriptionId = subscription.getDataValue("subscriptionId");
             const type = subscription.getDataValue("type");

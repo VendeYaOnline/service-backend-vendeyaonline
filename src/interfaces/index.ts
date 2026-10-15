@@ -19,6 +19,6 @@ export interface SuscriptionI {
   status: string;
   date: string;
   client: string;
-  /** Complementos que se suman a la mensualidad (utils/addons.ts). */
-  addons?: string[];
+  /** Complementos que se suman a la mensualidad, con su precio (utils/addons.ts). Las antiguas son solo la clave. */
+  addons?: (string | { key: string; price: number })[];
 }
