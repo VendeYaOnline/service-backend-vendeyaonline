@@ -6,7 +6,9 @@ import Subscription from "../models/suscriptions";
 import {
   ADDONS,
   AddonKey,
+  addonEntries,
   addonsTotal,
+  newAddonEntry,
   getPreapproval,
   isAddonKey,
   normalizeAddons,
@@ -63,18 +65,20 @@ const findAccount = async (email: string, transaction?: Transaction) => {
 
 const summary = (subscription: any, addon: AddonKey, nextPaymentDate: string | null = null) => {
   const price = Number(subscription.getDataValue("price"));
-  const addons = normalizeAddons(subscription.getDataValue("addons"));
+  const raw = subscription.getDataValue("addons");
+  const entry = addonEntries(raw).find((item) => item.key === addon);
   return {
     subscription: {
       type: subscription.getDataValue("type"),
       status: subscription.getDataValue("status"),
       plan_price: price,
-      addons,
-      addons_total: addonsTotal(addons),
-      total: subscriptionTotal(price, addons),
+      addons: normalizeAddons(raw),
+      addons_total: addonsTotal(raw),
+      total: subscriptionTotal(price, raw),
       next_payment_date: nextPaymentDate,
     },
-    addon: { key: addon, ...ADDONS[addon], active: addons.includes(addon) },
+    // Si ya lo tiene, el precio con el que lo activó; si no, el vigente.
+    addon: { key: addon, ...ADDONS[addon], price: entry?.price ?? ADDONS[addon].price, active: Boolean(entry) },
   };
 };
 
@@ -133,14 +137,15 @@ const changeAddon = (mode: "activate" | "cancel") => async (req: Request, res: R
         throw new AddonError(409, "SUBSCRIPTION_NOT_ACTIVE", "La suscripción no está activa.");
       }
 
-      const current = normalizeAddons(subscription.getDataValue("addons"));
-      const has = current.includes(addon);
+      const current = addonEntries(subscription.getDataValue("addons"));
+      const has = current.some((entry) => entry.key === addon);
       // Idempotente: repetir el pedido no vuelve a cambiar el cobro.
       if ((mode === "activate" && has) || (mode === "cancel" && !has)) {
         return { changed: false, ...summary(subscription, addon) };
       }
 
-      const next = mode === "activate" ? [...current, addon] : current.filter((key) => key !== addon);
+      // Al activar se guarda el precio vigente; quien ya lo tenía conserva el suyo.
+      const next = mode === "activate" ? [...current, newAddonEntry(addon)] : current.filter((entry) => entry.key !== addon);
       const price = Number(subscription.getDataValue("price"));
       const subscriptionId = subscription.getDataValue("subscriptionId");
       const type = subscription.getDataValue("type");

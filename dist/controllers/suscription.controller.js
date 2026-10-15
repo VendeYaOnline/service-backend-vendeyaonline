@@ -470,7 +470,8 @@ const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function*
                 res.status(200).json({
                     subscription: Object.assign(Object.assign({}, subscriptionData), { email: dataValues.email, date_limit: "", preapproval_id: subscriptionData.subscriptionId, 
                         // `price` es el del plan; esto es lo que se cobra con complementos.
-                        addons_total: (0, addons_1.addonsTotal)(subscriptionData.addons), total_price: (0, addons_1.subscriptionTotal)(subscriptionData.price, subscriptionData.addons) }),
+                        // El panel recibe solo las claves (los precios van en los totales).
+                        addons: (0, addons_1.normalizeAddons)(subscriptionData.addons), addons_total: (0, addons_1.addonsTotal)(subscriptionData.addons), total_price: (0, addons_1.subscriptionTotal)(subscriptionData.price, subscriptionData.addons) }),
                     preapproval: false,
                 });
                 return;
