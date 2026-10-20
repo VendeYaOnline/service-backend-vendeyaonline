@@ -7,9 +7,15 @@ import axios from "axios";
  * Pago es plan + complementos (ver `subscriptionTotal`).
  *
  * `subscriptions.addons` guarda cada complemento con el precio con el que se
- * activó: { key, price }. Así, si el precio cambia, quien ya lo tenía sigue
- * pagando lo mismo (es lo que Mercado Pago le cobra). Las entradas antiguas
- * son solo la clave ("marketing") y valen LEGACY_PRICES.
+ * activó: { key, price, cancel_at? }. Así, si el precio cambia, quien ya lo
+ * tenía sigue pagando lo mismo hasta que se le aplique el cambio programado
+ * (utils/addon-prices.ts). Las entradas antiguas son solo la clave
+ * ("marketing") y valen LEGACY_PRICES.
+ *
+ * Cancelación al terminar el mes: `cancel_at` = fecha del próximo cobro. Desde
+ * que se cancela ya no se suma al monto de Mercado Pago (el próximo cobro sale
+ * sin él), pero la tienda la sigue usando hasta esa fecha. Pasada la fecha, la
+ * entrada se ignora (y se borra en la siguiente escritura).
  */
 export const ADDONS = {
   marketing: { label: "Marketing", price: 20000 },
@@ -23,6 +29,8 @@ const LEGACY_PRICES: Record<AddonKey, number> = { marketing: 10000 };
 export interface AddonEntry {
   key: AddonKey;
   price: number;
+  /** Fecha (ISO) en que deja de estar activo; null = activo y cobrándose. */
+  cancel_at: string | null;
 }
 
 export const ADDON_KEYS = Object.keys(ADDONS) as AddonKey[];
@@ -30,7 +38,9 @@ export const ADDON_KEYS = Object.keys(ADDONS) as AddonKey[];
 export const isAddonKey = (value: unknown): value is AddonKey =>
   typeof value === "string" && (ADDON_KEYS as string[]).includes(value);
 
-/** Lo guardado en la columna → complementos conocidos con su precio, sin repetir. */
+const expired = (entry: AddonEntry, now = Date.now()) => Boolean(entry.cancel_at) && new Date(entry.cancel_at as string).getTime() <= now;
+
+/** Lo guardado en la columna → complementos vigentes con su precio, sin repetir (sin los ya vencidos). */
 export const addonEntries = (raw: unknown): AddonEntry[] => {
   if (!Array.isArray(raw)) return [];
   const entries: AddonEntry[] = [];
@@ -38,19 +48,21 @@ export const addonEntries = (raw: unknown): AddonEntry[] => {
     const key = typeof item === "string" ? item : item?.key;
     if (!isAddonKey(key) || entries.some((entry) => entry.key === key)) continue;
     const price = typeof item === "object" && Number.isFinite(Number(item?.price)) ? Math.round(Number(item.price)) : LEGACY_PRICES[key];
-    entries.push({ key, price });
+    const cancelAt = typeof item === "object" && typeof item?.cancel_at === "string" ? item.cancel_at : null;
+    const entry = { key, price, cancel_at: cancelAt };
+    if (!expired(entry)) entries.push(entry);
   }
   return entries;
 };
 
-/** Claves de los complementos activos. */
+/** Claves de los complementos activos (incluye los cancelados que siguen vigentes hasta su fecha). */
 export const normalizeAddons = (raw: unknown): AddonKey[] => addonEntries(raw).map((entry) => entry.key);
 
-/** Entrada nueva con el precio vigente. */
-export const newAddonEntry = (key: AddonKey): AddonEntry => ({ key, price: ADDONS[key].price });
-
-/** `raw` = lo guardado en la columna (no solo las claves). */
-export const addonsTotal = (raw: unknown) => addonEntries(raw).reduce((sum, entry) => sum + entry.price, 0);
+/** Lo que se cobra en la próxima mensualidad por complementos: los activos sin cancelación. */
+export const addonsTotal = (raw: unknown) =>
+  addonEntries(raw)
+    .filter((entry) => !entry.cancel_at)
+    .reduce((sum, entry) => sum + entry.price, 0);
 
 /** Lo que se cobra cada mes: plan + complementos (`raw` = lo guardado en la columna). */
 export const subscriptionTotal = (price: number, raw: unknown) =>

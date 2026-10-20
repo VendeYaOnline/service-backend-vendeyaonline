@@ -10,4 +10,9 @@ route.post("/service/addons/activate", [middlewares_1.validateService, addons_co
 route.post("/service/addons/cancel", [middlewares_1.validateService, addons_controller_1.cancelAddon]);
 // Estado de la suscripción (cancelada, cobros fallidos) para el panel de tiendas.
 route.post("/service/account/status", [middlewares_1.validateService, addons_controller_1.accountStatus]);
+// Precio de los complementos (lo controla el superadmin desde el panel de tiendas).
+route.post("/service/addons/pricing", [middlewares_1.validateService, addons_controller_1.getPricing]);
+route.post("/service/addons/pricing/schedule", [middlewares_1.validateService, addons_controller_1.schedulePricing]);
+route.post("/service/addons/pricing/cancel", [middlewares_1.validateService, addons_controller_1.cancelPricing]);
+route.post("/service/addons/pricing/retry", [middlewares_1.validateService, addons_controller_1.retryPricing]);
 exports.default = route;
