@@ -27,7 +27,9 @@ const addons_1 = require("./addons");
  *   tienda ve el aviso y recibe un correo (los manda el backend de tiendas) y
  *   puede cancelar antes. En la fecha, applyDueChanges actualiza el monto de
  *   cada suscripción en Mercado Pago y el precio guardado en su complemento.
- * - Bajar el precio se aplica de inmediato (beneficia a la tienda).
+ * - Bajar el precio se aplica de inmediato, pero solo a quien paga más que el
+ *   precio nuevo. Quien paga menos (lo activó cuando era más barato) conserva
+ *   su precio: una rebaja nunca le sube el cobro a nadie sin el aviso.
  * - Suscripciones pausadas: no se tocan (quedan en "paused" del resultado);
  *   el superadmin las revisa a mano. Las que ya cancelaron el complemento
  *   (cancel_at) tampoco: no se les vuelve a cobrar.
@@ -44,7 +46,7 @@ exports.AddonPriceChange = connect_1.sequelize.define("AddonPriceChange", {
     effective_at: { type: sequelize_1.DataTypes.DATE, allowNull: false },
     /** scheduled → applying → applied | canceled */
     status: { type: sequelize_1.DataTypes.STRING, allowNull: false, defaultValue: "scheduled" },
-    /** { updated: [...], failed: [...], paused: [...] } */
+    /** { updated: [...], failed: [...], paused: [...], kept: [...] } */
     results: { type: sequelize_1.DataTypes.JSON, allowNull: true },
     created_by: { type: sequelize_1.DataTypes.STRING, allowNull: true },
     created_at: { type: sequelize_1.DataTypes.DATE, allowNull: false, defaultValue: sequelize_1.DataTypes.NOW },
@@ -124,7 +126,7 @@ const pricingSummary = (key) => __awaiter(void 0, void 0, void 0, function* () {
 });
 exports.pricingSummary = pricingSummary;
 /** Aplica un cambio a una suscripción (con su fila bloqueada). */
-const applyToSubscription = (subscriptionId, key, newPrice) => __awaiter(void 0, void 0, void 0, function* () {
+const applyToSubscription = (subscriptionId, key, newPrice, lowerOnly) => __awaiter(void 0, void 0, void 0, function* () {
     return connect_1.sequelize.transaction((transaction) => __awaiter(void 0, void 0, void 0, function* () {
         const subscription = yield suscriptions_1.default.findByPk(subscriptionId, { transaction, lock: transaction.LOCK.UPDATE });
         if (!subscription)
@@ -135,6 +137,9 @@ const applyToSubscription = (subscriptionId, key, newPrice) => __awaiter(void 0,
             return "canceled";
         if (entry.price === newPrice)
             return "updated";
+        // Rebaja: quien ya paga menos que el precio nuevo no sube.
+        if (lowerOnly && entry.price < newPrice)
+            return "kept";
         if (subscription.getDataValue("status") !== "active")
             return "paused";
         const next = entries.map((item) => (item.key === key ? Object.assign(Object.assign({}, item), { price: newPrice }) : item));
@@ -153,7 +158,8 @@ const applyChange = (change_1, ...args_1) => __awaiter(void 0, [change_1, ...arg
     var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     const key = change.getDataValue("addon");
     const newPrice = Number(change.getDataValue("new_price"));
-    const previous = (_a = change.getDataValue("results")) !== null && _a !== void 0 ? _a : { updated: [], failed: [], paused: [] };
+    const lowerOnly = newPrice < Number(change.getDataValue("old_price"));
+    const previous = (_a = change.getDataValue("results")) !== null && _a !== void 0 ? _a : { updated: [], failed: [], paused: [], kept: [] };
     yield change.update({ status: "applying" });
     const targets = onlyFailed
         ? previous.failed.map((item) => item.subscription_id)
@@ -162,15 +168,18 @@ const applyChange = (change_1, ...args_1) => __awaiter(void 0, [change_1, ...arg
     for (const subscription of (yield suscriptions_1.default.findAll({ where: { id: targets }, include: [{ model: users_1.default, attributes: ["email"] }] }))) {
         emails.set(subscription.getDataValue("id"), (_c = (_b = subscription.User) === null || _b === void 0 ? void 0 : _b.email) !== null && _c !== void 0 ? _c : null);
     }
-    const results = onlyFailed ? Object.assign(Object.assign({}, previous), { failed: [] }) : { updated: [], failed: [], paused: [] };
+    const results = onlyFailed
+        ? Object.assign(Object.assign({ kept: [] }, previous), { failed: [] }) : { updated: [], failed: [], paused: [], kept: [] };
     for (const id of targets) {
         const item = { subscription_id: id, email: (_d = emails.get(id)) !== null && _d !== void 0 ? _d : null };
         try {
-            const outcome = yield applyToSubscription(id, key, newPrice);
+            const outcome = yield applyToSubscription(id, key, newPrice, lowerOnly);
             if (outcome === "updated")
                 results.updated.push(item);
             else if (outcome === "paused")
                 results.paused.push(item);
+            else if (outcome === "kept")
+                results.kept.push(item);
         }
         catch (error) {
             // Sin datos sensibles: solo el mensaje de Mercado Pago.
@@ -178,7 +187,7 @@ const applyChange = (change_1, ...args_1) => __awaiter(void 0, [change_1, ...arg
         }
     }
     yield change.update({ status: "applied", results, applied_at: (_j = change.getDataValue("applied_at")) !== null && _j !== void 0 ? _j : new Date() });
-    console.log(`[PRECIOS] ${key}: ${results.updated.length} actualizadas, ${results.failed.length} fallidas, ${results.paused.length} pausadas`);
+    console.log(`[PRECIOS] ${key}: ${results.updated.length} actualizadas, ${results.failed.length} fallidas, ${results.paused.length} pausadas, ${results.kept.length} conservan su precio`);
     return changeJson(change);
 });
 exports.applyChange = applyChange;
@@ -230,7 +239,7 @@ const schedulePriceChange = (_a) => __awaiter(void 0, [_a], void 0, function* ({
         status: "scheduled",
         created_by: createdBy !== null && createdBy !== void 0 ? createdBy : null,
     });
-    // Bajar el precio: de una vez.
+    // Bajar el precio: de una vez (solo a quien paga más).
     if (price < current)
         yield (0, exports.applyChange)(change);
     return { change: changeJson(change), immediate: price < current, increase: price > current };
