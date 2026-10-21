@@ -7,6 +7,7 @@ import routeMercado from "./routes/mercado.route";
 import routeForm from "./routes/form.route";
 import routeAddons from "./routes/addons.route";
 import { ensureSchema } from "./database/connect";
+import { startPriceChanges } from "./utils/addon-prices";
 import { corsOptions } from "./middlewares";
 const app = express();
 dotenv.config();
@@ -33,4 +34,6 @@ ensureSchema()
     app.listen(app.get("port"), () => {
       console.log("Server run in port", app.get("port"));
     });
+    // Cambios de precio programados de los complementos (cada hora).
+    startPriceChanges();
   });

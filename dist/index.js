@@ -12,6 +12,7 @@ const mercado_route_1 = __importDefault(require("./routes/mercado.route"));
 const form_route_1 = __importDefault(require("./routes/form.route"));
 const addons_route_1 = __importDefault(require("./routes/addons.route"));
 const connect_1 = require("./database/connect");
+const addon_prices_1 = require("./utils/addon-prices");
 const middlewares_1 = require("./middlewares");
 const app = (0, express_1.default)();
 dotenv_1.default.config();
@@ -34,4 +35,6 @@ app.use("/api", addons_route_1.default);
     app.listen(app.get("port"), () => {
         console.log("Server run in port", app.get("port"));
     });
+    // Cambios de precio programados de los complementos (cada hora).
+    (0, addon_prices_1.startPriceChanges)();
 });

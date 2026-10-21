@@ -1,6 +1,15 @@
 import { Router } from "express";
 import { validateService } from "../middlewares";
-import { accountStatus, activateAddon, cancelAddon, quoteAddon } from "../controllers/addons.controller";
+import {
+  accountStatus,
+  activateAddon,
+  cancelAddon,
+  cancelPricing,
+  getPricing,
+  quoteAddon,
+  retryPricing,
+  schedulePricing,
+} from "../controllers/addons.controller";
 
 const route = Router();
 
@@ -10,5 +19,10 @@ route.post("/service/addons/activate", [validateService, activateAddon]);
 route.post("/service/addons/cancel", [validateService, cancelAddon]);
 // Estado de la suscripción (cancelada, cobros fallidos) para el panel de tiendas.
 route.post("/service/account/status", [validateService, accountStatus]);
+// Precio de los complementos (lo controla el superadmin desde el panel de tiendas).
+route.post("/service/addons/pricing", [validateService, getPricing]);
+route.post("/service/addons/pricing/schedule", [validateService, schedulePricing]);
+route.post("/service/addons/pricing/cancel", [validateService, cancelPricing]);
+route.post("/service/addons/pricing/retry", [validateService, retryPricing]);
 
 export default route;

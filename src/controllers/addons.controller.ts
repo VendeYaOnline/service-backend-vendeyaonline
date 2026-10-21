@@ -8,13 +8,22 @@ import {
   AddonKey,
   addonEntries,
   addonsTotal,
-  newAddonEntry,
   getPreapproval,
   isAddonKey,
   normalizeAddons,
   setPreapprovalAmount,
   subscriptionTotal,
 } from "../utils/addons";
+import {
+  PriceError,
+  cancelPriceChange,
+  getAddonPrice,
+  newAddonEntry,
+  pricingSummary,
+  retryPriceChange,
+  schedulePriceChange,
+  scheduledChange,
+} from "../utils/addon-prices";
 
 /**
  * Complementos de la suscripción, pedidos por el backend del panel de tiendas
@@ -25,6 +34,10 @@ import {
  * - activate / cancel: cambian el monto del preapproval en Mercado Pago y,
  *   solo si eso funciona, guardan el complemento. El cobro nuevo aplica desde
  *   la siguiente mensualidad (Mercado Pago no cobra la diferencia ahora).
+ * - cancel no lo quita de una vez: queda activo hasta el próximo cobro
+ *   (cancel_at, el mes ya pagado) y ese cobro sale sin él. Activar antes de
+ *   esa fecha lo reactiva con su mismo precio.
+ * - pricing/*: el superadmin controla el precio (ver utils/addon-prices.ts).
  */
 
 /** Estados en los que se puede cambiar el monto (igual que updatedPlan). */
@@ -63,10 +76,11 @@ const findAccount = async (email: string, transaction?: Transaction) => {
   return { user, subscription };
 };
 
-const summary = (subscription: any, addon: AddonKey, nextPaymentDate: string | null = null) => {
+const summary = async (subscription: any, addon: AddonKey, nextPaymentDate: string | null = null) => {
   const price = Number(subscription.getDataValue("price"));
   const raw = subscription.getDataValue("addons");
   const entry = addonEntries(raw).find((item) => item.key === addon);
+  const [currentPrice, scheduled] = await Promise.all([getAddonPrice(addon), scheduledChange(addon)]);
   return {
     subscription: {
       type: subscription.getDataValue("type"),
@@ -78,12 +92,32 @@ const summary = (subscription: any, addon: AddonKey, nextPaymentDate: string | n
       next_payment_date: nextPaymentDate,
     },
     // Si ya lo tiene, el precio con el que lo activó; si no, el vigente.
-    addon: { key: addon, ...ADDONS[addon], price: entry?.price ?? ADDONS[addon].price, active: Boolean(entry) },
+    addon: {
+      key: addon,
+      label: ADDONS[addon].label,
+      price: entry?.price ?? currentPrice,
+      active: Boolean(entry),
+      // Cancelado al terminar el mes: activo hasta esta fecha.
+      cancel_at: entry?.cancel_at ?? null,
+    },
+    // Cambio de precio programado (para el aviso de la tienda).
+    price_change: scheduled ? { price: scheduled.getDataValue("new_price"), effective_at: scheduled.getDataValue("effective_at") } : null,
   };
 };
 
+/** Próximo cobro según Mercado Pago (null si no responde). */
+const nextPaymentOf = async (subscription: any) => {
+  try {
+    return (await getPreapproval(subscription.getDataValue("subscriptionId")))?.next_payment_date ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 const sendError = (res: Response, error: any, context: string) => {
-  if (error instanceof AddonError) {
+  if (error instanceof AddonError || error instanceof PriceError) {
     return res.status(error.status).json({ code: error.code, message: error.message });
   }
   // Errores de Mercado Pago: sin datos sensibles, solo el mensaje.
@@ -104,17 +138,12 @@ export const quoteAddon = async (req: Request, res: Response) => {
     if (!subscription) return res.status(200).json({ eligible: false, reason: "NO_SUBSCRIPTION" });
 
     // La fecha del próximo cobro es informativa: si Mercado Pago no responde, no bloquea.
-    let nextPaymentDate: string | null = null;
-    try {
-      nextPaymentDate = (await getPreapproval(subscription.getDataValue("subscriptionId")))?.next_payment_date ?? null;
-    } catch {
-      nextPaymentDate = null;
-    }
+    const nextPaymentDate = await nextPaymentOf(subscription);
     const editable = EDITABLE_STATUSES.includes(subscription.getDataValue("status"));
     return res.status(200).json({
       eligible: editable,
       reason: editable ? null : "SUBSCRIPTION_NOT_ACTIVE",
-      ...summary(subscription, addon, nextPaymentDate),
+      ...(await summary(subscription, addon, nextPaymentDate)),
     });
   } catch (error) {
     return sendError(res, error, "quote");
@@ -138,14 +167,24 @@ const changeAddon = (mode: "activate" | "cancel") => async (req: Request, res: R
       }
 
       const current = addonEntries(subscription.getDataValue("addons"));
-      const has = current.some((entry) => entry.key === addon);
+      const entry = current.find((item) => item.key === addon);
       // Idempotente: repetir el pedido no vuelve a cambiar el cobro.
-      if ((mode === "activate" && has) || (mode === "cancel" && !has)) {
-        return { changed: false, ...summary(subscription, addon) };
+      const alreadyActive = mode === "activate" && entry && !entry.cancel_at;
+      const alreadyCanceled = mode === "cancel" && (!entry || entry.cancel_at);
+      if (alreadyActive || alreadyCanceled) {
+        return { changed: false, ...(await summary(subscription, addon)) };
       }
 
-      // Al activar se guarda el precio vigente; quien ya lo tenía conserva el suyo.
-      const next = mode === "activate" ? [...current, newAddonEntry(addon)] : current.filter((entry) => entry.key !== addon);
+      let next;
+      if (mode === "activate") {
+        // Reactivar antes de que venza la cancelación: mismo precio. Si no, el vigente.
+        next = entry ? current.map((item) => (item.key === addon ? { ...item, cancel_at: null } : item)) : [...current, await newAddonEntry(addon)];
+      } else {
+        // Sigue activo hasta el próximo cobro (el mes ya pagado); ese cobro sale sin él.
+        const nextPayment = await nextPaymentOf(subscription);
+        const cancelAt = nextPayment && new Date(nextPayment).getTime() > Date.now() ? new Date(nextPayment) : new Date(Date.now() + 30 * DAY_MS);
+        next = current.map((item) => (item.key === addon ? { ...item, cancel_at: cancelAt.toISOString() } : item));
+      }
       const price = Number(subscription.getDataValue("price"));
       const subscriptionId = subscription.getDataValue("subscriptionId");
       const type = subscription.getDataValue("type");
@@ -161,7 +200,7 @@ const changeAddon = (mode: "activate" | "cancel") => async (req: Request, res: R
         throw dbError;
       }
       console.log(`[ADDONS] ${mode} ${addon} para la suscripción ${subscription.getDataValue("id")}`);
-      return { changed: true, ...summary(subscription, addon) };
+      return { changed: true, ...(await summary(subscription, addon)) };
     });
     return res.status(200).json(result);
   } catch (error) {
@@ -199,12 +238,22 @@ export const accountStatus = async (req: Request, res: Response) => {
     }
     // Semáforo de cobros de Mercado Pago: green = al día; yellow/red = cobros fallidos.
     const semaphore = preapproval?.summarized?.semaphore ?? null;
+    const raw = subscription.getDataValue("addons");
+    const priceChanges: Record<string, { price: number; effective_at: Date }> = {};
+    for (const key of normalizeAddons(raw)) {
+      const scheduled = await scheduledChange(key);
+      if (scheduled) priceChanges[key] = { price: scheduled.getDataValue("new_price"), effective_at: scheduled.getDataValue("effective_at") };
+    }
     return res.status(200).json({
       account: true,
       subscription: {
         type: subscription.getDataValue("type"),
         status: subscription.getDataValue("status"),
-        addons: normalizeAddons(subscription.getDataValue("addons")),
+        addons: normalizeAddons(raw),
+        // Precio de cada complemento y si se canceló (activo hasta cancel_at).
+        addon_details: addonEntries(raw),
+        // Subidas de precio programadas de sus complementos (aviso a la tienda).
+        price_changes: priceChanges,
         preapproval_status: preapproval?.status ?? null,
         payment_issue: preapproval ? semaphore === "yellow" || semaphore === "red" : null,
         next_payment_date: preapproval?.next_payment_date ?? null,
@@ -214,3 +263,36 @@ export const accountStatus = async (req: Request, res: Response) => {
     return sendError(res, error, "status");
   }
 };
+
+// ---------------------------------------------------------------------------
+// Precio de los complementos (superadmin del panel de tiendas)
+
+const parseAddon = (body: any) => {
+  if (!isAddonKey(body?.addon)) throw new AddonError(400, "ADDON_INVALID", "Complemento desconocido.");
+  return body.addon as AddonKey;
+};
+
+const pricingAction = (action: (body: any, key: AddonKey) => Promise<unknown>, context: string) => async (req: Request, res: Response) => {
+  try {
+    const key = parseAddon(req.body);
+    const result = await action(req.body, key);
+    return res.status(200).json({ result, pricing: await pricingSummary(key) });
+  } catch (error) {
+    return sendError(res, error, context);
+  }
+};
+
+/** POST /api/service/addons/pricing — precio vigente, quién lo paga, cambio programado y el último aplicado. */
+export const getPricing = pricingAction(async () => null, "pricing");
+
+/** POST /api/service/addons/pricing/schedule — { addon, price, effective_at, created_by }. */
+export const schedulePricing = pricingAction(
+  (body, key) => schedulePriceChange({ key, price: Number(body?.price), effectiveAt: body?.effective_at, createdBy: body?.created_by ?? null }),
+  "pricing/schedule",
+);
+
+/** POST /api/service/addons/pricing/cancel — cancela el cambio programado. */
+export const cancelPricing = pricingAction((_body, key) => cancelPriceChange(key), "pricing/cancel");
+
+/** POST /api/service/addons/pricing/retry — reintenta las suscripciones que fallaron. */
+export const retryPricing = pricingAction((_body, key) => retryPriceChange(key), "pricing/retry");
