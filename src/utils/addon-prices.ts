@@ -13,7 +13,9 @@ import { ADDONS, AddonEntry, AddonKey, addonEntries, setPreapprovalAmount, subsc
  *   tienda ve el aviso y recibe un correo (los manda el backend de tiendas) y
  *   puede cancelar antes. En la fecha, applyDueChanges actualiza el monto de
  *   cada suscripción en Mercado Pago y el precio guardado en su complemento.
- * - Bajar el precio se aplica de inmediato (beneficia a la tienda).
+ * - Bajar el precio se aplica de inmediato, pero solo a quien paga más que el
+ *   precio nuevo. Quien paga menos (lo activó cuando era más barato) conserva
+ *   su precio: una rebaja nunca le sube el cobro a nadie sin el aviso.
  * - Suscripciones pausadas: no se tocan (quedan en "paused" del resultado);
  *   el superadmin las revisa a mano. Las que ya cancelaron el complemento
  *   (cancel_at) tampoco: no se les vuelve a cobrar.
@@ -34,7 +36,7 @@ export const AddonPriceChange = sequelize.define(
     effective_at: { type: DataTypes.DATE, allowNull: false },
     /** scheduled → applying → applied | canceled */
     status: { type: DataTypes.STRING, allowNull: false, defaultValue: "scheduled" },
-    /** { updated: [...], failed: [...], paused: [...] } */
+    /** { updated: [...], failed: [...], paused: [...], kept: [...] } */
     results: { type: DataTypes.JSON, allowNull: true },
     created_by: { type: DataTypes.STRING, allowNull: true },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
@@ -117,7 +119,7 @@ export const pricingSummary = async (key: AddonKey) => {
 };
 
 /** Aplica un cambio a una suscripción (con su fila bloqueada). */
-const applyToSubscription = async (subscriptionId: number, key: AddonKey, newPrice: number) =>
+const applyToSubscription = async (subscriptionId: number, key: AddonKey, newPrice: number, lowerOnly: boolean) =>
   sequelize.transaction(async (transaction) => {
     const subscription: any = await Subscription.findByPk(subscriptionId, { transaction, lock: transaction.LOCK.UPDATE });
     if (!subscription) return "gone";
@@ -125,6 +127,8 @@ const applyToSubscription = async (subscriptionId: number, key: AddonKey, newPri
     const entry = entries.find((item) => item.key === key);
     if (!entry || entry.cancel_at) return "canceled";
     if (entry.price === newPrice) return "updated";
+    // Rebaja: quien ya paga menos que el precio nuevo no sube.
+    if (lowerOnly && entry.price < newPrice) return "kept";
     if (subscription.getDataValue("status") !== "active") return "paused";
     const next = entries.map((item) => (item.key === key ? { ...item, price: newPrice } : item));
     // Primero Mercado Pago; la base solo cambia si eso funcionó.
@@ -147,7 +151,8 @@ let running = false;
 export const applyChange = async (change: any, { onlyFailed = false } = {}) => {
   const key = change.getDataValue("addon") as AddonKey;
   const newPrice = Number(change.getDataValue("new_price"));
-  const previous = change.getDataValue("results") ?? { updated: [], failed: [], paused: [] };
+  const lowerOnly = newPrice < Number(change.getDataValue("old_price"));
+  const previous = change.getDataValue("results") ?? { updated: [], failed: [], paused: [], kept: [] };
   await change.update({ status: "applying" });
 
   const targets = onlyFailed
@@ -158,20 +163,25 @@ export const applyChange = async (change: any, { onlyFailed = false } = {}) => {
     emails.set(subscription.getDataValue("id"), subscription.User?.email ?? null);
   }
 
-  const results = onlyFailed ? { ...previous, failed: [] as any[] } : { updated: [] as any[], failed: [] as any[], paused: [] as any[] };
+  const results = onlyFailed
+    ? { kept: [] as any[], ...previous, failed: [] as any[] }
+    : { updated: [] as any[], failed: [] as any[], paused: [] as any[], kept: [] as any[] };
   for (const id of targets) {
     const item = { subscription_id: id, email: emails.get(id) ?? null };
     try {
-      const outcome = await applyToSubscription(id, key, newPrice);
+      const outcome = await applyToSubscription(id, key, newPrice, lowerOnly);
       if (outcome === "updated") results.updated.push(item);
       else if (outcome === "paused") results.paused.push(item);
+      else if (outcome === "kept") results.kept.push(item);
     } catch (error: any) {
       // Sin datos sensibles: solo el mensaje de Mercado Pago.
       results.failed.push({ ...item, error: String(error?.response?.data?.message ?? error?.message ?? error).slice(0, 200) });
     }
   }
   await change.update({ status: "applied", results, applied_at: change.getDataValue("applied_at") ?? new Date() });
-  console.log(`[PRECIOS] ${key}: ${results.updated.length} actualizadas, ${results.failed.length} fallidas, ${results.paused.length} pausadas`);
+  console.log(
+    `[PRECIOS] ${key}: ${results.updated.length} actualizadas, ${results.failed.length} fallidas, ${results.paused.length} pausadas, ${results.kept.length} conservan su precio`,
+  );
   return changeJson(change);
 };
 
@@ -219,7 +229,7 @@ export const schedulePriceChange = async ({ key, price, effectiveAt, createdBy }
     status: "scheduled",
     created_by: createdBy ?? null,
   });
-  // Bajar el precio: de una vez.
+  // Bajar el precio: de una vez (solo a quien paga más).
   if (price < current) await applyChange(change);
   return { change: changeJson(change), immediate: price < current, increase: price > current };
 };
