@@ -17,6 +17,7 @@ const suscriptionSchema_1 = require("../schemas/suscriptionSchema");
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
 const users_1 = __importDefault(require("../models/users"));
 const canceled_subscriptions_1 = __importDefault(require("../models/canceled_subscriptions"));
+const subscription_status_1 = require("../utils/subscription-status");
 const preapprovald_subscriptions_1 = __importDefault(require("../models/preapprovald_subscriptions"));
 const planSchema_1 = require("../schemas/planSchema");
 const axios_1 = __importDefault(require("axios"));
@@ -50,7 +51,9 @@ const getSuscriptionByUser = (req, res) => __awaiter(void 0, void 0, void 0, fun
             include: [suscriptions_1.default, canceled_subscriptions_1.default],
         });
         const { dataValues } = user;
-        if (dataValues.Subscriptions.length ||
+        // La cancelada por Mercado Pago no cuenta: puede suscribirse de nuevo.
+        const current = dataValues.Subscriptions.filter((item) => item.dataValues.status !== subscription_status_1.MP_CANCELLED);
+        if (current.length ||
             dataValues.CanceledSubscriptions.length) {
             res.status(200).json({
                 subscription: true,

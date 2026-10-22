@@ -17,6 +17,7 @@ const sequelize_1 = require("sequelize");
 const connect_1 = require("../database/connect");
 const users_1 = __importDefault(require("../models/users"));
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
+const subscription_status_1 = require("../utils/subscription-status");
 const addons_1 = require("../utils/addons");
 const addon_prices_1 = require("../utils/addon-prices");
 /**
@@ -222,6 +223,10 @@ const accountStatus = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         }
         catch (_f) {
             preapproval = null;
+        }
+        // El aviso de cancelación de Mercado Pago puede no haber llegado nunca: se registra aquí.
+        if ((preapproval === null || preapproval === void 0 ? void 0 : preapproval.status) === "cancelled" && (yield (0, subscription_status_1.markMercadoPagoCancelled)(subscription.getDataValue("subscriptionId")))) {
+            yield subscription.reload();
         }
         // Semáforo de cobros de Mercado Pago: green = al día; yellow/red = cobros fallidos.
         const semaphore = (_c = (_b = preapproval === null || preapproval === void 0 ? void 0 : preapproval.summarized) === null || _b === void 0 ? void 0 : _b.semaphore) !== null && _c !== void 0 ? _c : null;

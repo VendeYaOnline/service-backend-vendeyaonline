@@ -20,6 +20,10 @@ const users_1 = __importDefault(require("../models/users"));
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
 const utils_1 = require("../utils");
 const preapprovald_subscriptions_1 = __importDefault(require("../models/preapprovald_subscriptions"));
+const addons_1 = require("../utils/addons");
+const subscription_status_1 = require("../utils/subscription-status");
+/** Servicio de correos de VendeYaOnline (configurable para probar en local sin enviar correos reales). */
+const EMAIL_SERVICE_URL = (process.env.EMAIL_SERVICE_URL || "https://app-email-production.up.railway.app").replace(/\/+$/, "");
 // MercadoPago devuelve el init_point con "&activation=true", pero su checkout de
 // suscripciones (mp-subscriptions-checkout-fe) responde INVALID_PARAMS ("Esta
 // página no existe") cuando recibe ese parámetro. Sin él, la URL carga bien.
@@ -244,12 +248,14 @@ const parseExternalReference = (reference) => {
 // puede dispararse tanto desde "subscription_preapproval" como desde
 // "subscription_authorized_payment" sin duplicar.
 const activateSubscription = (params) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     const { clientId, quantityProducts, price, reason, dateCreated, subscriptionId } = params;
     // Si este preapproval ya está guardado, la suscripción existe (aunque el
     // external_reference apunte a otro id de usuario, p. ej. tras restaurar la BD).
+    // Excepción: la fila que Mercado Pago canceló y ahora vuelve a suscribirse.
     if (subscriptionId) {
         const existing = yield suscriptions_1.default.findOne({ where: { subscriptionId } });
-        if (existing) {
+        if (existing && existing.getDataValue("status") !== subscription_status_1.MP_CANCELLED) {
             console.log("[WEBHOOK] El preapproval ya está registrado, se omite", subscriptionId);
             return;
         }
@@ -260,7 +266,8 @@ const activateSubscription = (params) => __awaiter(void 0, void 0, void 0, funct
         return;
     }
     const { dataValues } = user;
-    if (dataValues.Subscriptions.length) {
+    const previous = (_a = dataValues.Subscriptions[0]) !== null && _a !== void 0 ? _a : null;
+    if (previous && previous.dataValues.status !== subscription_status_1.MP_CANCELLED) {
         console.log("[WEBHOOK] El usuario ya tiene una suscripción, se omite (idempotencia)");
         return;
     }
@@ -272,14 +279,21 @@ const activateSubscription = (params) => __awaiter(void 0, void 0, void 0, funct
         date: (0, utils_1.formatDate)(dateCreated),
         subscriptionId: subscriptionId,
     };
-    console.log("[WEBHOOK] Creando suscripción:", JSON.stringify(subscriptionData, null, 2));
-    yield suscriptions_1.default.create(subscriptionData);
+    if (previous) {
+        // Mercado Pago canceló su suscripción anterior: se reutiliza la fila, como una nueva (sin complementos).
+        console.log("[WEBHOOK] Vuelve a suscribirse tras la cancelación de Mercado Pago:", JSON.stringify(subscriptionData, null, 2));
+        yield suscriptions_1.default.update(Object.assign(Object.assign({}, subscriptionData), { status: "pause", addons: [] }), { where: { id: previous.dataValues.id } });
+    }
+    else {
+        console.log("[WEBHOOK] Creando suscripción:", JSON.stringify(subscriptionData, null, 2));
+        yield suscriptions_1.default.create(subscriptionData);
+    }
     console.log("[WEBHOOK] Suscripción creada exitosamente en BD");
     yield preapprovald_subscriptions_1.default.destroy({ where: { client: clientId } });
     // Pausar la suscripción en MP después de guardar en BD (regla de negocio).
     if (subscriptionId) {
         try {
-            yield axios_1.default.put(`https://api.mercadopago.com/preapproval/${subscriptionId}`, { status: "paused" }, {
+            yield axios_1.default.put(`${addons_1.MP_API_URL}/preapproval/${subscriptionId}`, { status: "paused" }, {
                 headers: {
                     Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
                     "Content-Type": "application/json",
@@ -292,7 +306,7 @@ const activateSubscription = (params) => __awaiter(void 0, void 0, void 0, funct
     }
     // Enviar email de confirmación (no bloquea si falla).
     try {
-        yield axios_1.default.post("https://app-email-production.up.railway.app/subscription-confirmed", {
+        yield axios_1.default.post(`${EMAIL_SERVICE_URL}/subscription-confirmed`, {
             to: dataValues.email,
             client: dataValues.username,
             plan: (0, utils_1.getSubscriptionType)(reason),
@@ -322,14 +336,14 @@ const webhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         // confirma la suscripción, mucho antes que el primer cobro autorizado.
         if (type === "subscription_preapproval") {
             const preapprovalId = data.id;
-            const mpResponse = yield axios_1.default.get(`https://api.mercadopago.com/preapproval/${preapprovalId}`, {
-                headers: {
-                    Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-                    "Content-Type": "application/json",
-                },
-            });
-            const preapproval = mpResponse.data;
+            const preapproval = yield (0, addons_1.getPreapproval)(preapprovalId);
             console.log("[WEBHOOK] preapproval:", JSON.stringify(preapproval, null, 2));
+            // Mercado Pago la canceló (p. ej. tras varios cobros rechazados): ya no se cobra.
+            if (preapproval.status === "cancelled") {
+                yield (0, subscription_status_1.markMercadoPagoCancelled)(preapprovalId);
+                res.sendStatus(200);
+                return;
+            }
             if (preapproval.status !== "authorized") {
                 console.log(`[WEBHOOK] preapproval ${preapprovalId} con status "${preapproval.status}", ignorando.`);
                 res.sendStatus(200);
