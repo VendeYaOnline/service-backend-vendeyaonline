@@ -7,6 +7,7 @@ import Subscription from "../models/suscriptions";
 import { SuscriptionI, UserI } from "../interfaces";
 import User from "../models/users";
 import CanceledSubscription from "../models/canceled_subscriptions";
+import { MP_CANCELLED } from "../utils/subscription-status";
 import PreapprovaldSubscription from "../models/preapprovald_subscriptions";
 import { planSchemaUpdated } from "../schemas/planSchema";
 import axios from "axios";
@@ -46,8 +47,10 @@ export const getSuscriptionByUser = async (req: Request, res: Response) => {
       include: [Subscription, CanceledSubscription],
     });
     const { dataValues } = user as { dataValues: UserI };
+    // La cancelada por Mercado Pago no cuenta: puede suscribirse de nuevo.
+    const current = dataValues.Subscriptions.filter((item: any) => item.dataValues.status !== MP_CANCELLED);
     if (
-      dataValues.Subscriptions.length ||
+      current.length ||
       dataValues.CanceledSubscriptions.length
     ) {
       res.status(200).json({

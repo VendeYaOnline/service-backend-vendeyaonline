@@ -3,6 +3,7 @@ import { Transaction, fn, col, where } from "sequelize";
 import { sequelize } from "../database/connect";
 import User from "../models/users";
 import Subscription from "../models/suscriptions";
+import { markMercadoPagoCancelled } from "../utils/subscription-status";
 import {
   ADDONS,
   AddonKey,
@@ -235,6 +236,10 @@ export const accountStatus = async (req: Request, res: Response) => {
       preapproval = await getPreapproval(subscription.getDataValue("subscriptionId"));
     } catch {
       preapproval = null;
+    }
+    // El aviso de cancelación de Mercado Pago puede no haber llegado nunca: se registra aquí.
+    if (preapproval?.status === "cancelled" && (await markMercadoPagoCancelled(subscription.getDataValue("subscriptionId")))) {
+      await subscription.reload();
     }
     // Semáforo de cobros de Mercado Pago: green = al día; yellow/red = cobros fallidos.
     const semaphore = preapproval?.summarized?.semaphore ?? null;
