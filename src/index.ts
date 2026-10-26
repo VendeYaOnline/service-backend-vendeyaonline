@@ -34,6 +34,6 @@ ensureSchema()
     app.listen(app.get("port"), () => {
       console.log("Server run in port", app.get("port"));
     });
-    // Cambios de precio programados de los complementos (cada hora).
+    // Cambios de precio programados de los complementos (a la hora en punto).
     startPriceChanges();
   });
