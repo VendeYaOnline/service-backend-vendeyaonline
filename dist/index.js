@@ -35,6 +35,6 @@ app.use("/api", addons_route_1.default);
     app.listen(app.get("port"), () => {
         console.log("Server run in port", app.get("port"));
     });
-    // Cambios de precio programados de los complementos (cada hora).
+    // Cambios de precio programados de los complementos (a la hora en punto).
     (0, addon_prices_1.startPriceChanges)();
 });

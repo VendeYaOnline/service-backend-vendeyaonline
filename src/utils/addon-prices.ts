@@ -251,9 +251,24 @@ export const retryPriceChange = async (key: AddonKey) => {
   return applyChange(change, { onlyFailed: true });
 };
 
-/** Cada hora (y al arrancar): aplica los cambios que ya llegaron a su fecha. */
+const HOUR_MS = 60 * 60 * 1000;
+
+/** Milisegundos hasta la próxima hora en punto (nunca 0: en la hora exacta, la siguiente). */
+export const msUntilNextHour = (now = Date.now()) => HOUR_MS - (now % HOUR_MS);
+
+/**
+ * A la hora en punto (y al arrancar): aplica los cambios que ya llegaron a su
+ * fecha. Neon cobra el tiempo que la base pasa despierta; la revisión de
+ * suscripciones del backend del panel también corre a la hora en punto y
+ * consulta este backend, así ambas despiertan la base una sola vez.
+ */
 export const startPriceChanges = () => {
   const run = () => applyDueChanges().catch((error) => console.error("[PRECIOS] No se pudieron aplicar:", error?.message ?? error));
+  const scheduleNext = () => {
+    setTimeout(() => {
+      run().finally(scheduleNext);
+    }, msUntilNextHour()).unref();
+  };
   setTimeout(run, 30_000).unref();
-  setInterval(run, 60 * 60 * 1000).unref();
+  scheduleNext();
 };

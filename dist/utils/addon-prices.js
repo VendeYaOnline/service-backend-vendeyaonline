@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.startPriceChanges = exports.retryPriceChange = exports.cancelPriceChange = exports.schedulePriceChange = exports.applyDueChanges = exports.applyChange = exports.pricingSummary = exports.scheduledChange = exports.newAddonEntry = exports.getAddonPrice = exports.PriceError = exports.AddonPriceChange = exports.MIN_NOTICE_DAYS = void 0;
+exports.startPriceChanges = exports.msUntilNextHour = exports.retryPriceChange = exports.cancelPriceChange = exports.schedulePriceChange = exports.applyDueChanges = exports.applyChange = exports.pricingSummary = exports.scheduledChange = exports.newAddonEntry = exports.getAddonPrice = exports.PriceError = exports.AddonPriceChange = exports.MIN_NOTICE_DAYS = void 0;
 const sequelize_1 = require("sequelize");
 const connect_1 = require("../database/connect");
 const suscriptions_1 = __importDefault(require("../models/suscriptions"));
@@ -264,10 +264,24 @@ const retryPriceChange = (key) => __awaiter(void 0, void 0, void 0, function* ()
     return (0, exports.applyChange)(change, { onlyFailed: true });
 });
 exports.retryPriceChange = retryPriceChange;
-/** Cada hora (y al arrancar): aplica los cambios que ya llegaron a su fecha. */
+const HOUR_MS = 60 * 60 * 1000;
+/** Milisegundos hasta la próxima hora en punto (nunca 0: en la hora exacta, la siguiente). */
+const msUntilNextHour = (now = Date.now()) => HOUR_MS - (now % HOUR_MS);
+exports.msUntilNextHour = msUntilNextHour;
+/**
+ * A la hora en punto (y al arrancar): aplica los cambios que ya llegaron a su
+ * fecha. Neon cobra el tiempo que la base pasa despierta; la revisión de
+ * suscripciones del backend del panel también corre a la hora en punto y
+ * consulta este backend, así ambas despiertan la base una sola vez.
+ */
 const startPriceChanges = () => {
     const run = () => (0, exports.applyDueChanges)().catch((error) => { var _a; return console.error("[PRECIOS] No se pudieron aplicar:", (_a = error === null || error === void 0 ? void 0 : error.message) !== null && _a !== void 0 ? _a : error); });
+    const scheduleNext = () => {
+        setTimeout(() => {
+            run().finally(scheduleNext);
+        }, (0, exports.msUntilNextHour)()).unref();
+    };
     setTimeout(run, 30000).unref();
-    setInterval(run, 60 * 60 * 1000).unref();
+    scheduleNext();
 };
 exports.startPriceChanges = startPriceChanges;
