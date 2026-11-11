@@ -19,6 +19,7 @@ import {
   setPreapprovalAmount,
   subscriptionTotal,
 } from "../utils/addons";
+import { getPanelProductCount } from "../utils/panel-usage";
 
 export const getAllSuscription = async (_req: Request, res: Response) => {
   try {
@@ -245,7 +246,7 @@ export const updatedPlan = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "No subscription found" });
     }
 
-    const { id, numberProductsCreated, status, subscriptionId, addons } = subscription;
+    const { id, status, subscriptionId, addons } = subscription;
 
     if (status !== "active" && status !== "pause") {
       return res
@@ -259,6 +260,9 @@ export const updatedPlan = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid plan or price" });
     }
 
+    // Con el conteo real del panel: no se puede bajar a un plan con menos
+    // productos de los que la tienda ya tiene creados.
+    const numberProductsCreated = await currentProductCount(dataValues.email, subscription);
     if (numberProductsCreated > data.quantityProducts) {
       return res.status(400).json({ message: "Error updating plan" });
     }
@@ -484,6 +488,30 @@ export const createActiveSubscriptionsPause = async (
   }
 };
 
+/**
+ * Productos que la tienda tiene creados en su panel. Solo se consulta con la
+ * suscripción vigente (activa o en pausa), que es cuando se muestra el uso y
+ * se puede cambiar de plan. Si el número cambió se guarda, para que el resto
+ * del sistema (p. ej. el dashboard) vea el mismo valor; si el panel no
+ * responde se usa el guardado.
+ */
+const currentProductCount = async (
+  email: string,
+  subscription: { id?: number; status: string; numberProductsCreated: number },
+): Promise<number> => {
+  const stored = subscription.numberProductsCreated ?? 0;
+  if (subscription.status !== "active" && subscription.status !== "pause") return stored;
+  const live = await getPanelProductCount(email);
+  if (live === null) return stored;
+  if (live !== stored && subscription.id) {
+    await Subscription.update(
+      { numberProductsCreated: live },
+      { where: { id: subscription.id } },
+    ).catch(() => console.error("[panel-usage] No se pudo guardar el uso de productos"));
+  }
+  return live;
+};
+
 export const getSuscription = async (req: Request, res: Response) => {
   const { id } = req.params;
   if (!id || id === "undefined") {
@@ -501,11 +529,16 @@ export const getSuscription = async (req: Request, res: Response) => {
         !dataValues.CanceledSubscriptions.length
       ) {
         const subscriptionData = dataValues.Subscriptions[0].dataValues;
+        const numberProductsCreated = await currentProductCount(
+          dataValues.email,
+          subscriptionData,
+        );
         // El preapproval id se persiste en subscriptionId al crear la suscripción,
         // así evitamos una consulta en vivo a MercadoPago en cada lectura.
         res.status(200).json({
           subscription: {
             ...subscriptionData,
+            numberProductsCreated,
             email: dataValues.email,
             date_limit: "",
             preapproval_id: subscriptionData.subscriptionId,
