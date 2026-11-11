@@ -23,6 +23,7 @@ const planSchema_1 = require("../schemas/planSchema");
 const axios_1 = __importDefault(require("axios"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const addons_1 = require("../utils/addons");
+const panel_usage_1 = require("../utils/panel-usage");
 const getAllSuscription = (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const subscription = yield suscriptions_1.default.findAll();
@@ -235,7 +236,7 @@ const updatedPlan = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         if (!subscription) {
             return res.status(404).json({ message: "No subscription found" });
         }
-        const { id, numberProductsCreated, status, subscriptionId, addons } = subscription;
+        const { id, status, subscriptionId, addons } = subscription;
         if (status !== "active" && status !== "pause") {
             return res
                 .status(400)
@@ -246,6 +247,9 @@ const updatedPlan = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         if (price === null || price !== data.price) {
             return res.status(400).json({ message: "Invalid plan or price" });
         }
+        // Con el conteo real del panel: no se puede bajar a un plan con menos
+        // productos de los que la tienda ya tiene creados.
+        const numberProductsCreated = yield currentProductCount(dataValues.email, subscription);
         if (numberProductsCreated > data.quantityProducts) {
             return res.status(400).json({ message: "Error updating plan" });
         }
@@ -452,6 +456,26 @@ const createActiveSubscriptionsPause = (req, res) => __awaiter(void 0, void 0, v
     }
 });
 exports.createActiveSubscriptionsPause = createActiveSubscriptionsPause;
+/**
+ * Productos que la tienda tiene creados en su panel. Solo se consulta con la
+ * suscripción vigente (activa o en pausa), que es cuando se muestra el uso y
+ * se puede cambiar de plan. Si el número cambió se guarda, para que el resto
+ * del sistema (p. ej. el dashboard) vea el mismo valor; si el panel no
+ * responde se usa el guardado.
+ */
+const currentProductCount = (email, subscription) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    const stored = (_a = subscription.numberProductsCreated) !== null && _a !== void 0 ? _a : 0;
+    if (subscription.status !== "active" && subscription.status !== "pause")
+        return stored;
+    const live = yield (0, panel_usage_1.getPanelProductCount)(email);
+    if (live === null)
+        return stored;
+    if (live !== stored && subscription.id) {
+        yield suscriptions_1.default.update({ numberProductsCreated: live }, { where: { id: subscription.id } }).catch(() => console.error("[panel-usage] No se pudo guardar el uso de productos"));
+    }
+    return live;
+});
 const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     if (!id || id === "undefined") {
@@ -468,10 +492,11 @@ const getSuscription = (req, res) => __awaiter(void 0, void 0, void 0, function*
             if (dataValues.Subscriptions.length &&
                 !dataValues.CanceledSubscriptions.length) {
                 const subscriptionData = dataValues.Subscriptions[0].dataValues;
+                const numberProductsCreated = yield currentProductCount(dataValues.email, subscriptionData);
                 // El preapproval id se persiste en subscriptionId al crear la suscripción,
                 // así evitamos una consulta en vivo a MercadoPago en cada lectura.
                 res.status(200).json({
-                    subscription: Object.assign(Object.assign({}, subscriptionData), { email: dataValues.email, date_limit: "", preapproval_id: subscriptionData.subscriptionId, 
+                    subscription: Object.assign(Object.assign({}, subscriptionData), { numberProductsCreated, email: dataValues.email, date_limit: "", preapproval_id: subscriptionData.subscriptionId, 
                         // `price` es el del plan; esto es lo que se cobra con complementos.
                         // El panel recibe solo las claves (los precios van en los totales).
                         addons: (0, addons_1.normalizeAddons)(subscriptionData.addons), addons_total: (0, addons_1.addonsTotal)(subscriptionData.addons), total_price: (0, addons_1.subscriptionTotal)(subscriptionData.price, subscriptionData.addons) }),
