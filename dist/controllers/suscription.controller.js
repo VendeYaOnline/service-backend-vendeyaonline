@@ -251,7 +251,13 @@ const updatedPlan = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         // productos de los que la tienda ya tiene creados.
         const numberProductsCreated = yield currentProductCount(dataValues.email, subscription);
         if (numberProductsCreated > data.quantityProducts) {
-            return res.status(400).json({ message: "Error updating plan" });
+            // Código y cifras para que "Mi cuenta" explique por qué no se puede.
+            return res.status(400).json({
+                message: "Error updating plan",
+                code: "PRODUCTS_EXCEED_PLAN",
+                productsCreated: numberProductsCreated,
+                planLimit: data.quantityProducts,
+            });
         }
         // Primero Mercado Pago; la BD solo se actualiza si este paso funciona.
         // Los complementos activos (p. ej. Marketing) se siguen cobrando con el plan nuevo.
